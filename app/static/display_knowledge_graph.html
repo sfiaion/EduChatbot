@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>高中数学知识图谱</title>
+  <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+  <style type="text/css">
+    #mynetwork {
+      width: 100%;
+      height: 800px;
+      border: 1px solid lightgray;
+    }
+    body {
+      font-family: "Microsoft YaHei", sans-serif;
+      margin: 20px;
+    }
+    .node-info {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>高中数学知识图谱</h1>
+  <div id="mynetwork"></div>
+  <div id="node-info" class="node-info">
+    <h3>知识点详情</h3>
+    <p id="node-content">点击节点查看详情</p>
+  </div>
+  <script type="text/javascript">
+  const container = document.getElementById('mynetwork');
+  const nodeInfo = document.getElementById('node-info');
+  const nodeContent = document.getElementById('node-content');
+
+  let network; // vis 网络实例
+  let nodes = new vis.DataSet();
+  let edges = new vis.DataSet();
+
+  // 图配置
+  const options = {
+    nodes: {
+      shape: 'dot',
+      size: 25,
+      font: { size: 16, face: 'Microsoft YaHei' },
+      borderWidth: 2,
+      color: {
+        background: '#97c2fc',
+        border: '#2B7CE9'
+      }
+    },
+    edges: {
+      arrows: 'to',
+      color: { color: '#333' },
+      smooth: { type: 'cubicBezier' }
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 200
+    },
+    physics: {
+      stabilization: true
+    }
+  };
+
+  // 加载某个节点的局部图谱
+  async function loadGraph(centerName) {
+    try {
+      const response = await fetch(`/api/knowledge-graph?center=${encodeURIComponent(centerName)}`);
+      const data = await response.json();
+
+      // 更新 vis 数据集
+      nodes.clear();
+      edges.clear();
+      nodes.add(data.nodes);
+      edges.add(data.edges);
+
+      // 如果网络不存在则创建，否则更新数据
+      if (!network) {
+        network = new vis.Network(container, { nodes, edges }, options);
+
+        // 点击节点后重新加载
+        network.on("click", function (params) {
+          if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            nodeContent.innerText = `正在加载 "${nodeId}" 的关联知识点...`;
+            nodeInfo.style.display = 'block';
+            loadGraph(nodeId); // 点击节点后重新加载该节点为中心的局部图谱
+          }
+        });
+      } else {
+        network.setData({ nodes, edges });
+      }
+
+      // 显示节点详情
+      nodeContent.innerText = `当前中心节点："${centerName}"`;
+      nodeInfo.style.display = 'block';
+
+    } catch (err) {
+      console.error('加载图谱失败:', err);
+      container.innerHTML = '<p style="color:red">加载失败</p>';
+    }
+  }
+
+  // 默认加载一个初始中心节点
+  loadGraph('函数的定义');
+</script>
+</body>
+</html>

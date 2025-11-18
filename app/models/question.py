@@ -17,21 +17,7 @@ class Question(Base):
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
 
     # Relationships
-    images = relationship("Image", back_populates="question", cascade="all, delete-orphan")
     submissions = relationship("StudentSubmission", back_populates="question")
-
-class Image(Base):
-    __tablename__ = "images"
-
-    id = Column(Integer, primary_key=True, index=True)
-    question_id = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
-    path = Column(String, nullable=False)
-    image_type = Column(String, nullable=False)  # 'question' 或 'answer'
-    created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
-
-    # Relationship to Question
-    question = relationship("Question", back_populates="images")
 
 class Assignment(Base):
     __tablename__ = "assignments"

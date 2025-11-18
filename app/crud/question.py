@@ -1,6 +1,46 @@
 from sqlalchemy.orm import Session
 from typing import List
 from app.models.question import Question, KnowledgeNode
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException, status
+
+def create_question(
+    db: Session,
+    question: str,
+    normalized_question: str,
+    answer: str,
+    types: list[str],
+    properties: list[str],
+    difficulty: str,
+):
+    existing = db.query(Question).filter(
+        Question.normalized_question == normalized_question
+    ).first()
+    if existing:
+        return existing
+    knowledge_tag = {
+        "types": types,
+        "properties": properties,
+    }
+    db_question = Question(
+        question=question,
+        normalized_question=normalized_question,
+        answer=answer,
+        knowledge_tag=knowledge_tag,
+        difficulty_tag=difficulty,
+    )
+    db.add(db_question)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.query(Question).filter(
+            Question.normalized_question == normalized_question
+        ).first()
+        return existing
+    db.refresh(db_question)
+    return db_question
+
 
 def get_question_by_id(db: Session, question_id: int):
     return db.query(Question).filter(Question.id == question_id).first()

@@ -54,6 +54,43 @@
    - `python -m app.db.import_graph`
    - `http://localhost:8000/static/display_knowledge_graph.html`
 
+### 教师上传题目
+
+#### DOCX 转 PDF（LibreOffice
+
+本项目使用 **LibreOffice（soffice.exe）** 将 `.docx` 文档转换为 `.pdf`。
+
+##### 安装 LibreOffice（Windows）
+
+1. 下载地址：
+    https://www.libreoffice.org/download/download-libreoffice/
+
+2. 安装后，默认路径大约如下：
+
+   `C:\Program Files\LibreOffice\program\soffice.exe`
+
+> ⚠️ LibreOffice **不是 pip 包**，但必须让在本地安装。
+
+------
+
+#### PDF 转图片（Poppler）
+
+项目使用 `pdf2image` 将 PDF 转为 PNG。
+ Windows 上需要额外安装 **Poppler**。
+
+##### 安装 Poppler（Windows）
+
+1. 下载 Windows 版 Poppler（第三方维护）：
+    https://github.com/oschwartz10612/poppler-windows/releases/
+
+2. 解压后，将路径指向解压目录的 `/bin`，例如：
+
+   `D:\poppler\poppler-24.08.0\Library\bin`
+
+3. 安装依赖：
+
+   `pip install pdf2image`
+
 ## 🧪 开发与调试工具
 
 - **查看数据库**：

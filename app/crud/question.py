@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import List
+
+from app.models import StudentSubmission
 from app.models.question import Question, KnowledgeNode
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
@@ -13,11 +15,7 @@ def create_question(
     properties: list[str],
     difficulty: str,
 ):
-    existing = db.query(Question).filter(
-        Question.normalized_question == normalized_question
-    ).first()
-    if existing:
-        return existing
+
     knowledge_tag = {
         "types": types,
         "properties": properties,
@@ -30,17 +28,31 @@ def create_question(
         difficulty_tag=difficulty,
     )
     db.add(db_question)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        existing = db.query(Question).filter(
-            Question.normalized_question == normalized_question
-        ).first()
-        return existing
+    db.commit()
     db.refresh(db_question)
     return db_question
 
+def is_norm_duplicate(db: Session, normalized_question: str):
+    existing = db.query(Question).filter(
+        Question.normalized_question == normalized_question
+    ).first()
+    if existing:
+        return True
+    return False
+
+def get_done_questions(db: Session, student_id: int) -> set[int]:
+    rows = db.query(StudentSubmission.question_id).filter(
+        StudentSubmission.student_id == student_id
+    ).all()
+    return {r[0] for r in rows}
+
+def get_difficulty(db: Session, question_id: int) -> str:
+    question_id = int(question_id)
+    row = db.query(Question.difficulty_tag).filter(
+        Question.id == question_id
+    ).first()
+    # print(f"[DEBUG] qid={question_id}, query result={row}")
+    return row[0]
 
 def get_question_by_id(db: Session, question_id: int):
     return db.query(Question).filter(Question.id == question_id).first()

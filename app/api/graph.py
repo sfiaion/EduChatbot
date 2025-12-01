@@ -3,9 +3,9 @@ from fastapi import APIRouter, Query
 from py2neo import Graph
 from app.db.neo4j import graph
 
-router = APIRouter()
+router = APIRouter(prefix="/knowledge-graph", tags=["KnowledgeGraph"])
 
-@router.get("/knowledge-graph")
+@router.get("")
 def get_knowledge_graph(center: str = Query(..., description="中心节点名称")):
     query = """
     MATCH (n:Knowledge {name: $center})

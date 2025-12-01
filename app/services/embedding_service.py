@@ -1,6 +1,4 @@
 from sentence_transformers import SentenceTransformer
-import numpy as np
-
 
 class EmbeddingService:
     def __init__(self):
@@ -8,11 +6,19 @@ class EmbeddingService:
 
     def build_text(self, questions):
         texts = []
-        for question in questions:
+        for q in questions:
+            if hasattr(q, 'knowledge_tag'):
+                # Question ORM
+                types = q.knowledge_tag["types"]
+                properties = q.knowledge_tag["properties"]
+            else:
+                # ParsedQuestion
+                types = q.types
+                properties = q.properties
             parts = []
-            parts.append(f"[函数类型：{question.knowledge_tag["types"]}]")
-            parts.append(f"[函数性质：{question.knowledge_tag["properties"]}]")
-            parts.append(question.question)
+            parts.append(f"[函数类型：{types}]")
+            parts.append(f"[函数性质：{properties}]")
+            parts.append(q.question)
             texts.append(" ".join(parts))
         return texts
 

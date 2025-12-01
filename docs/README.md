@@ -34,6 +34,14 @@
 
 `python -m app.db.import_knowledge`
 
+**新增：**导入题库
+
+`python -m app.db.import_question`
+
+**新增：**导入向量（导入向量会生成 `faiss.index` 和 `id2vector.pkl` 两个文件，这两个文件已经上传了。如果需要重新导入，需要把已有的这两个文件删除）
+
+`python -m app.db.import_vector`
+
 ### 4. 启动服务
 
 `python run.py`
@@ -53,6 +61,12 @@
 3. 导入知识点关系到 Neo4j
    - `python -m app.db.import_graph`
    - `http://localhost:8000/static/display_knowledge_graph.html`
+
+### （新增）6.下载模型
+
+下载 `bert-base-chinese` （自动打标签那里需要）
+
+下载 `shibing624/text2vec-base-chinese` （错题推荐那里需要）
 
 ### 教师上传题目
 

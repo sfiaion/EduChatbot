@@ -4,7 +4,7 @@ from app.db.session import get_db  # 假设你有这个函数
 from app.schemas.correction import CorrectionRequest, CorrectionResponse, ErrorType
 from ..services.correction import grade_answer_service
 
-router = APIRouter()
+router = APIRouter(prefix="/correction", tags=["Correction"])
 
 @router.post("/grade", response_model=CorrectionResponse)
 def grade_answer(req: CorrectionRequest, db: Session = Depends(get_db)):

@@ -18,8 +18,8 @@ def upload_question_file(
     result = upload_questions(file, db, teacher_id)
     return result
 
-@router.get("/{problem_id}/recommendation", response_model=RecommendationResponse)
-def get_recommended_questions(req: RecommendationRequest, db: Session = Depends(get_db)):
+@router.post("/{problem_id}/recommendation", response_model=RecommendationResponse)
+def recommend_questions(req: RecommendationRequest, db: Session = Depends(get_db)):
     question = get_question_by_id(db, req.question_id)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")

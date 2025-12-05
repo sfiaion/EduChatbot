@@ -68,6 +68,8 @@
 
 下载 `shibing624/text2vec-base-chinese` （错题推荐那里需要）
 
+可以参考`test/download.py`
+
 ### 教师上传题目
 
 #### DOCX 转 PDF（LibreOffice
@@ -126,6 +128,10 @@
   - 数学公式、特殊符号渲染是否正确
   - 换行、空格、中文标点等格式是否保留
     该页面模拟了实际前端展示环境，适合在开发初期快速排查显示问题。
+
+- **（新增）导入测试数据**
+
+  `python -m mock_errors` 和 `python_mock_students_and_submissions` 可以在学生表，学生作答表和错误分析表中填写测试数据
 
 ## 🔐 **敏感配置**
 

@@ -1,8 +1,8 @@
 <template>
-  <div style="padding:20px; height:100vh; display:flex; flex-direction:column;">
-    <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items: flex-end;">
+  <div style="padding:20px; height:100%; display:flex; flex-direction:column; gap:16px;">
+    <div class="card-soft" style="padding:16px; display:flex; justify-content:space-between; align-items:flex-end;">
       <div>
-        <h2 style="margin:0 0 12px 0;">题库选题</h2>
+        <h2 class="title-gradient-violet" style="margin:0 0 12px 0;">题库选题</h2>
         <div style="display:flex; gap:12px; align-items:center;">
           <el-select v-model="filter.difficulty" placeholder="难度" clearable style="width:120px" @change="handleFilter">
             <el-option label="容易" value="易" />
@@ -10,12 +10,14 @@
             <el-option label="困难" value="难" />
           </el-select>
           <el-input v-model="filter.knowledge" placeholder="搜索知识点..." clearable style="width:200px" @keyup.enter="handleFilter" />
-          <el-button type="primary" @click="handleFilter">搜索</el-button>
+          <el-button type="primary" class="ripple" @click="handleFilter">搜索</el-button>
+          <el-button class="ripple" @click="clearFilter">清空</el-button>
+          <el-tag v-if="store.total" type="success">共 {{ store.total }} 题</el-tag>
         </div>
       </div>
 
       <div style="display:flex; gap:12px;">
-        <el-button type="success" @click="openDialog" :disabled="!store.selectedQuestions.length">
+        <el-button type="success" class="ripple" @click="openDialog" :disabled="!store.selectedQuestions.length">
           创建作业 ({{ store.selectedQuestions.length }})
         </el-button>
         <el-upload 
@@ -23,7 +25,7 @@
            :http-request="customRequest" 
            :show-file-list="false" 
            accept=".csv,.xlsx,.xls,.json">
-           <el-button>导入题目</el-button>
+           <el-button class="ripple">导入题目</el-button>
         </el-upload>
       </div>
     </div>
@@ -33,7 +35,7 @@
       :data="store.questions" 
       @selection-change="handleSelection"
       border 
-      style="width: 100%; flex:1;">
+      style="width: 100%; flex:1;" class="card-soft">
       <el-table-column type="selection" width="55" />
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column label="题干" min-width="300">
@@ -125,6 +127,13 @@ function handleFilter() {
 
 function handleSelection(val: Question[]) {
   store.selectedQuestions = val
+}
+
+function clearFilter() {
+  filter.difficulty = ''
+  filter.knowledge = ''
+  page.value = 1
+  handleFilter()
 }
 
 function openDialog() {

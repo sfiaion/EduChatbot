@@ -1,9 +1,12 @@
 <template>
-  <div style="padding:20px; max-width:800px; margin:0 auto;">
-    <h2>学生作业</h2>
+  <div style="padding:20px; max-width:900px; margin:0 auto;">
+    <div class="card-soft" style="padding:16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 class="title-gradient-blue" style="margin:0;">学生作业</h2>
+      <div style="color:#6b7280;">共 {{ questions.length }} 题</div>
+    </div>
     <div v-if="loading">加载中...</div>
     <div v-else>
-      <div v-for="(q, idx) in questions" :key="q.id" style="margin-bottom:24px; padding:16px; border:1px solid #eee; border-radius:8px;">
+      <div v-for="(q, idx) in questions" :key="q.id" class="card-soft" style="margin-bottom:24px; padding:16px;">
         <div style="margin-bottom:12px; font-weight:bold;">第 {{ idx + 1 }} 题</div>
         <div style="margin-bottom:12px; white-space:pre-wrap;">
              <LatexText :content="q.question" />
@@ -39,8 +42,8 @@
             </div>
         </div>
       </div>
-      <div style="margin-top:20px; text-align:center;">
-        <el-button type="primary" size="large" @click="submit" :loading="submitting">提交作业</el-button>
+      <div style="position:fixed; right:24px; bottom:24px;">
+        <el-button type="primary" size="large" class="ripple" @click="submit" :loading="submitting">提交作业</el-button>
       </div>
     </div>
   </div>

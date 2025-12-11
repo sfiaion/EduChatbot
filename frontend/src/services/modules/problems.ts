@@ -39,3 +39,8 @@ export async function recommendForWrong(questionId: number, studentId: number, s
   })
   return r.data as { base_question_id: number; slot: string; expected: number; found: number; items: RecommendationItem[] }
 }
+
+export async function getProblemById(id: number) {
+  const r = await api.get(`/api/problems/${id}`)
+  return r.data as { id: number; question: string; normalized_question: string; answer: string; difficulty_tag: string; knowledge_tag: string }
+}

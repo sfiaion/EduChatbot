@@ -10,6 +10,8 @@ const router = createRouter({
     { path: '/results/:assignmentId', component: () => import('@/features/submissions/views/ResultView.vue') },
     { path: '/stats/:id', component: () => import('@/features/assignments/views/StatsView.vue') },
     { path: '/ocr', component: () => import('@/features/submissions/views/OCRView.vue') },
+    { path: '/practice', component: () => import('@/features/practice/views/PracticeView.vue') },
+    { path: '/wrongbook', component: () => import('@/features/wrongbook/views/WrongBook.vue') },
     { path: '/', redirect: '/chat' }
   ]
 })

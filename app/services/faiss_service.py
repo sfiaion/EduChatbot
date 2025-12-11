@@ -1,15 +1,22 @@
 # app/services/faiss.py
 import pickle
-
+import os
+import pathlib
 import faiss
 import numpy as np
-import os
 
 class FaissService:
     def __init__(self, dim):
         self.dim = dim
-        self.index_path = "faiss.index"
-        self.vectors_path = "id2vector.pkl"
+        app_root = pathlib.Path(__file__).resolve().parent.parent
+        env_dir = os.environ.get("EDUCHATBOT_FAISS_DIR")
+        if env_dir:
+            data_dir = pathlib.Path(env_dir)
+        else:
+            data_dir = pathlib.Path.home() / ".educhatbot"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.index_path = str(data_dir / "faiss.index")
+        self.vectors_path = str(data_dir / "id2vector.pkl")
         if os.path.exists(self.index_path):
             # print("加载已有 FAISS index")
             self.index = faiss.read_index(self.index_path)
@@ -29,11 +36,15 @@ class FaissService:
             ids.astype(np.int64),
         )
         for id, vector in zip(ids, vectors):
-            self.id2vector[id] = vector.astype(np.float32)
+            self.id2vector[int(id)] = vector.astype(np.float32)
         self.save()
 
     def get_vector_by_id(self, id):
-        return self.id2vector.get(id)
+        try:
+            key = int(id)
+        except Exception:
+            key = id
+        return self.id2vector.get(key)
 
     def search_vector(self, vector, k):
         vector = vector.reshape(1, -1).astype(np.float32)
@@ -53,7 +64,7 @@ class FaissService:
             del self.id2vector[id]
         # 重建索引
         self.index = faiss.IndexIDMap(faiss.IndexFlatIP(self.dim))
-        ids = np.array(list(self.id2vector.keys()), dtype=np.int64)
+        ids = np.array([int(k) for k in self.id2vector.keys()], dtype=np.int64)
         vectors = np.array(list(self.id2vector.values()), dtype=np.float32)
         if len(ids) > 0:
             self.index.add_with_ids(vectors, ids)

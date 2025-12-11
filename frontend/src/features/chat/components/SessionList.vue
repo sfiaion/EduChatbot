@@ -1,12 +1,15 @@
 <template>
-  <div style="width:300px; border-right:1px solid #eee; height:100vh; display:flex; flex-direction:column;">
+  <div style="width:300px; border-right:1px solid #eee; height:100%; display:flex; flex-direction:column;">
     <div style="padding:12px; display:flex; align-items:center; justify-content:space-between;">
-      <div style="font-weight:600;">会话</div>
+      <div class="title-gradient-blue" style="font-weight:700; font-size:20px;">会话</div>
       <el-button type="primary" size="small" @click="newChat">新对话</el-button>
+    </div>
+    <div style="padding:0 12px 12px;">
+      <el-input v-model="q" placeholder="搜索会话" clearable />
     </div>
     <div style="flex:1; overflow:auto;">
       <div
-        v-for="s in chat.sessions"
+        v-for="s in filtered"
         :key="s.session_id"
         class="session-item"
         :class="{ active: s.session_id === chat.activeSessionId }"
@@ -25,8 +28,15 @@
 <script setup lang="ts">
 import { useChatStore } from '../store'
 import { ElMessageBox } from 'element-plus'
+import { computed, ref } from 'vue'
 
 const chat = useChatStore()
+const q = ref('')
+const filtered = computed(() => {
+  const t = q.value.trim().toLowerCase()
+  if (!t) return chat.sessions
+  return chat.sessions.filter(s => (s.title || '').toLowerCase().includes(t))
+})
 
 function select(id: string) { chat.selectSession(id) }
 async function newChat() { await chat.newSession() }
@@ -51,6 +61,7 @@ function formatTime(iso: string) {
     padding: 12px;
     cursor: pointer;
     border-bottom: 1px solid #f0f0f0;
+    transition: background .15s ease;
 }
 .session-item:hover {
     background-color: #fafafa;

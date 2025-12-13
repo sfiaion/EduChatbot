@@ -14,6 +14,7 @@ from app.utils.convert_file import parse_document
 from app.utils.manage_dir import new_task_tmp_dir, clear_dir
 from app.schemas.assignment import AssignmentCreate
 from app.crud.assignment import create_assignment
+import difflib
 from app.models.question import Question
 
 class ParsedQuestion:
@@ -30,7 +31,7 @@ def normalize_text(text):
         return ""
     text = text.lower()
     text = re.sub(r'\s+', '', text)
-    text = re.sub(r'[^\w\u4e00-\u9fff]', '', text)
+    text = re.sub(r'[^\w\u4e00-\u9fff+\-\*/=<>\(\)\[\]]', '', text)
     text = re.sub(r'_+', '', text)
     return text
 
@@ -107,9 +108,12 @@ def process_assignment_upload(
                 # Check similarity (if FAISS was not empty)
                 is_duplicate = False
                 if faiss_service.ntotal > 0:
-                    if scores[idx, 0] >= 0.95:
+                    existing_id = int(ids[idx, 0])
+                    existing_q = db.query(Question).filter(Question.id == existing_id).first()
+                    existing_norm = existing_q.normalized_question if existing_q else ""
+                    sim = difflib.SequenceMatcher(None, pq.normalized_question, existing_norm).ratio() if existing_norm else 0.0
+                    if scores[idx, 0] >= 0.99 and sim >= 0.90:
                         is_duplicate = True
-                        existing_id = int(ids[idx, 0])
                         assignment_q_ids.append(existing_id)
 
                 if not is_duplicate:

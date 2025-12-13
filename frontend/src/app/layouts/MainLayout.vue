@@ -12,6 +12,7 @@
         <el-menu-item index="/chat"><el-icon><ChatLineRound /></el-icon><span>对话</span></el-menu-item>
         <el-menu-item index="/problems"><el-icon><Document /></el-icon><span>题库管理</span></el-menu-item>
         <el-menu-item index="/paper/1"><el-icon><Edit /></el-icon><span>学生作业</span></el-menu-item>
+        <el-menu-item index="/results/1"><el-icon><DataAnalysis /></el-icon><span>批改结果</span></el-menu-item>
         <el-menu-item index="/practice"><el-icon><Reading /></el-icon><span>练习</span></el-menu-item>
         <el-menu-item index="/wrongbook"><el-icon><Memo /></el-icon><span>错题本</span></el-menu-item>
         <el-menu-item index="/knowledge"><el-icon><DataAnalysis /></el-icon><span>数据分析</span></el-menu-item>
@@ -31,8 +32,7 @@
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
           <div style="display:flex; gap:8px;">
-            <el-button size="small" type="primary" class="ripple" @click="go('/paper/1')">新建作业</el-button>
-            <el-button size="small" class="ripple btn-ghost" @click="go('/problems')">上传题库</el-button>
+            <el-button size="small" type="primary" class="ripple" @click="go('/problems')">新建作业</el-button>
             <el-button size="small" class="ripple btn-outline" @click="go('/knowledge')">进入分析</el-button>
           </div>
           <el-badge :value="3" class="item"><el-button circle><el-icon><Bell /></el-icon></el-button></el-badge>
@@ -84,7 +84,8 @@ const gradClass = computed(() => {
     wrongbook: 'title-grad-violet',
     knowledge: 'title-grad-teal'
   }
-  return map[first] || 'title-grad-blue'
+  const key = first || 'chat'
+  return map[key] || 'title-grad-blue'
 })
 
 const accentColor = computed(() => {
@@ -98,7 +99,8 @@ const accentColor = computed(() => {
     wrongbook: 'rgba(124,58,237,.08)',
     knowledge: 'rgba(16,185,129,.08)'
   }
-  return map[first] || 'rgba(37,99,235,.08)'
+  const key = first || 'chat'
+  return map[key] || 'rgba(37,99,235,.08)'
 })
 
 const weightClass = computed(() => {

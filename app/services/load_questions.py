@@ -89,7 +89,7 @@ def file_to_questions(path, db: Session, tmp_dir: str):
         embeddings = emb_service.encode(norm_dedup_questions).astype(np.float32)
         scores, _ = faiss_service.index.search(embeddings, k=1) #检索使用 IndexFlatIP 的“内积”相似度， k=1 只看最相似的一个已存向量
         for idx, q in enumerate(norm_dedup_questions):
-            if scores[idx, 0] < 0.95:
+            if scores[idx, 0] < 0.99:
                 embed_dedup_questions.append(q)
                 new_embeddings.append(embeddings[idx])
         if new_embeddings:

@@ -1,14 +1,51 @@
 <template>
-  <div style="padding:20px; max-width:800px; margin:0 auto;">
-    <h2>批改结果</h2>
+  <div class="page-wrap">
+    <div class="toolbar card-soft" style="margin-bottom:12px;">
+      <div class="toolbar-left">
+        <h2 class="title-gradient-teal" style="margin:0;">批改结果</h2>
+        <span style="margin-left:8px; color:#606266;">作业ID：{{ assignmentId }}</span>
+      </div>
+      <div class="toolbar-right">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="display:flex; gap:14px; color:#374151; font-weight:600;">
+            <span>正确率 {{ accuracy }}%</span>
+            <span>正确 {{ correctCount }}</span>
+            <span>错误 {{ wrongCount }}</span>
+          </div>
+          <el-switch
+            v-model="showAll"
+            inline-prompt
+            active-text="显示全部"
+            inactive-text="仅错误"
+            @change="applyModeFromToggle"
+          />
+        </div>
+      </div>
+    </div>
     <div v-if="loading">加载中...</div>
-    <div v-else>
-      <div v-for="(res, idx) in results" :key="idx" 
-           style="margin-bottom:24px; padding:16px; border:1px solid #eee; border-radius:8px;"
-           :style="{ borderColor: res.is_correct ? '#67c23a' : '#f56c6c', backgroundColor: res.is_correct ? '#f0f9eb' : '#fef0f0' }"
-      >
-        <div style="margin-bottom:12px; font-weight:bold;">第 {{ idx + 1 }} 题</div>
-        <div style="margin-bottom:8px;">
+    <div v-else-if="results.length===0" class="card-soft" style="padding:24px; color:#909399;">暂无批改结果</div>
+    <div v-else class="results-grid">
+      <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
+        <div
+          v-for="(res, idx) in renderedResults"
+          :key="idx"
+          class="mac-card soft-hover"
+          :class="isCollapsed(res) ? 'is-collapsed' : ''"
+          style="padding:16px;"
+          :style="{ boxShadow: `inset 0 0 0 2px ${res.is_correct ? '#67c23a' : '#f56c6c'}` }"
+        >
+        <div class="card-header" @click="handleTitleClick(res)">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <el-icon v-if="isCollapsed(res)"><ArrowRight /></el-icon>
+            <el-icon v-else><ArrowDown /></el-icon>
+            <span>第 {{ idx + 1 }} 题</span>
+          </div>
+          <el-tag :type="res.is_correct ? 'success' : 'danger'" size="small">
+            {{ res.is_correct ? '正确' : '错误' }}
+          </el-tag>
+        </div>
+        <el-collapse-transition>
+        <div v-show="!isCollapsed(res)" style="margin-bottom:8px;">
             <strong>学生答案：</strong>
             <div v-if="res.image_path || res.student_answer.includes('[IMAGE]')">
                 <img :src="getImageUrl(res)" style="max-width:300px; border:1px solid #ddd; margin: 5px 0;" />
@@ -18,10 +55,19 @@
             </div>
             <div v-else>{{ res.student_answer }}</div>
         </div>
+        </el-collapse-transition>
         
-        <div style="margin-top:12px; border-top:1px dashed #ccc; padding-top:12px;">
-            <div v-if="res.is_correct" style="color:#67c23a; font-weight:bold;">
-                <el-icon><Check /></el-icon> 回答正确
+        <div v-if="!res.is_correct || !isCollapsed(res)" style="margin-top:12px; border-top:1px solid rgba(0,0,0,.06); padding-top:12px;">
+            <div v-if="res.is_correct">
+                <div style="color:#067b2d; font-weight:600; display:flex; align-items:center; gap:10px;">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <el-icon><Check /></el-icon><span>回答正确</span>
+                  </div>
+                  <div style="display:flex; gap:6px;">
+                    <el-button size="small" class="btn-outline" @click="viewQuestion(res.question_id)">查看题目</el-button>
+                    <el-button size="small" type="primary" @click="toggleCollapse(res)">折叠</el-button>
+                  </div>
+                </div>
             </div>
             <div v-else>
                 <div style="color:#f56c6c; font-weight:bold; margin-bottom:4px;">
@@ -31,6 +77,7 @@
                     <el-tag type="danger" size="small">{{ formatErrorType(res.error_type) }}</el-tag>
                 </div>
                 <div style="margin-top:8px;">
+                  <el-button size="small" class="btn-outline" @click="viewQuestion(res.question_id)">查看题目</el-button>
                   <el-button size="small" type="primary" @click="toggleAnswer(res.question_id)">查看答案</el-button>
                 </div>
                 <el-collapse-transition>
@@ -46,15 +93,19 @@
                   </div>
                 </el-collapse-transition>
                 <div style="margin-top:8px;">
-                    <div style="color:#333; font-weight:500; margin-bottom:6px;">相似练习（巩固）：</div>
+                    <div style="color:#374151; font-weight:600; margin-bottom:6px;">推荐练习</div>
                 <template v-if="getRecs(res.question_id).length > 0">
-                  <ul style="padding-left:18px; margin:0;">
-                    <li v-for="item in getRecs(res.question_id)" :key="item.id">
-                          题目ID：{{ item.id }}（相似度 {{ item.score.toFixed(2) }}）
-                          <el-button size="small" type="primary" style="margin-left:8px;" @click="viewQuestion(item.id)">查看题目</el-button>
-                          <el-button size="small" style="margin-left:6px;" @click="addPractice(item.id)">加入练习清单</el-button>
-                    </li>
-                  </ul>
+                  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    <div v-for="item in getRecs(res.question_id)" :key="item.id" class="recommend-chip">
+                      <span>#{{ item.id }}</span>
+                      <div style="display:flex; gap:6px;">
+                        <el-button size="small" class="btn-outline" @click="viewQuestion(item.id)">查看题目</el-button>
+                        <el-button size="small" :type="inPractice(item.id) ? 'danger' : 'success'" @click="togglePractice(item.id)">
+                          {{ inPractice(item.id) ? '删除' : '加入练习清单' }}
+                        </el-button>
+                      </div>
+                    </div>
+                  </div>
                 </template>
                     <template v-else>
                       <div style="color:#909399; font-size:13px;">暂未找到合适的相似题目</div>
@@ -63,31 +114,39 @@
             </div>
         </div>
       </div>
-      
-      <div style="text-align:center; margin-top:20px;">
-        <el-button @click="router.push('/problems')">返回题库</el-button>
+      </div>
+      <div class="aside-sticky" style="max-width:300px; justify-self:end;">
+        <div class="panel">
+          <div class="panel-title">练习清单</div>
+          <div style="font-size:13px; color:#606266;">共 {{ practice.list.length }} 题</div>
+          <el-scrollbar height="420px" style="margin-top:6px;">
+            <div class="panel-list">
+              <div v-for="id in practice.list" :key="id" class="panel-item" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>题目ID：{{ id }}</span>
+                <div style="display:flex; gap:6px;">
+                  <el-button size="small" @click="viewQuestion(id)">查看</el-button>
+                  <el-button size="small" type="danger" @click="practice.remove(id)">删除</el-button>
+                </div>
+              </div>
+            </div>
+          </el-scrollbar>
+          <div style="margin-top:12px;">
+            <el-button type="primary" style="width:100%;" @click="router.push('/practice')">去练习</el-button>
+          </div>
+          <div class="divider-soft" style="margin:12px 0;"></div>
+          <div style="font-weight:600; margin-bottom:6px;">查看历史作业</div>
+          <div style="display:flex; gap:8px;">
+            <el-input-number v-model="historyId" :min="1" />
+            <el-button class="btn-outline" @click="goHistory">查看结果</el-button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- 右上角切换推荐档位 -->
-  <div style="position:fixed; right:24px; top:24px; background:#fff; border:1px solid #eee; padding:8px 12px; border-radius:6px;">
-    <span style="margin-right:8px; color:#606266;">推荐档位</span>
-    <el-select v-model="slot" size="small" style="width:120px;" @change="fetchRecs">
-      <el-option label="高相似" value="high" />
-      <el-option label="中相似" value="mid" />
-      <el-option label="低相似" value="low" />
-    </el-select>
-  </div>
+  
 
-  <!-- 练习清单 -->
-  <div v-if="practice.list.length" style="position:fixed; left:24px; bottom:24px; background:#fff; border:1px solid #eee; padding:8px 12px; border-radius:6px; max-width:360px;">
-    <div style="font-weight:600; margin-bottom:6px;">练习清单</div>
-    <div style="font-size:13px; color:#606266;">共 {{ practice.list.length }} 题</div>
-    <ul style="padding-left:18px; margin:6px 0 0;">
-      <li v-for="id in practice.list" :key="id">题目ID：{{ id }}</li>
-    </ul>
-  </div>
+  
 
   <!-- 题目预览弹窗，仅展示题干，支持查看答案 -->
   <el-dialog v-model="preview" :title="preview ? ('题目 '+preview.id) : ''" width="600px">
@@ -117,8 +176,9 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getSubmissionResults, type SubmissionResult } from '../../../services/modules/submissions'
 import { recommendForWrong, type RecommendationItem, getProblemById } from '../../../services/modules/problems'
-import { Check, Close } from '@element-plus/icons-vue'
+import { Check, Close, ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { nextTick, onBeforeUnmount, computed } from 'vue'
 import LatexText from '../../../components/LatexText.vue'
 import { usePracticeStore } from '../../practice/store'
 
@@ -129,13 +189,17 @@ const studentId = Number(route.params.studentId) || 1
 
 const loading = ref(false)
 const results = ref<SubmissionResult[]>([])
+const renderedResults = ref<SubmissionResult[]>([])
 const recs = ref<Record<number, RecommendationItem[]>>({})
-const slot = ref<'high'|'mid'|'low'>('high')
 const practice = usePracticeStore()
 const preview = ref<{ id: number; question: string; answer: string } | null>(null)
 const previewShowAnswer = ref(false)
 const answersMap = ref<Record<number, string>>({})
 const shownMap = ref<Record<number, boolean>>({})
+const historyId = ref(assignmentId)
+const collapsedMap = ref<Record<number, boolean>>({})
+const showAll = ref<boolean>(localStorage.getItem('results_view_mode') === 'all')
+const listRenderCount = ref(20)
 
 onMounted(async () => {
   if (!assignmentId) return
@@ -149,19 +213,24 @@ onMounted(async () => {
         answersMap.value[r.question_id] = q.answer
       } catch {}
     }
+    initCollapse()
+    applyMode()
+    initRenderedResults()
     await fetchRecs()
+    restoreScroll()
   } catch (e) {
     ElMessage.error('加载结果失败')
   } finally {
     loading.value = false
   }
+  window.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 async function fetchRecs() {
   const wrongIds = results.value.filter(r => r && r.is_correct === false).map(r => r.question_id)
   for (const qid of wrongIds) {
     try {
-      const r = await recommendForWrong(qid, studentId, slot.value, 5)
+      const r = await recommendForWrong(qid, studentId, 'high', 5)
       recs.value[qid] = r.items || []
     } catch (_) {
       recs.value[qid] = []
@@ -169,9 +238,37 @@ async function fetchRecs() {
   }
 }
 
+function initCollapse() {
+  for (const r of results.value) {
+    collapsedMap.value[r.question_id] = r.is_correct && !showAll.value
+  }
+}
+function applyMode() {
+  for (const r of results.value) {
+    collapsedMap.value[r.question_id] = r.is_correct && !showAll.value
+  }
+  localStorage.setItem('results_view_mode', showAll.value ? 'all' : 'onlyWrong')
+}
+function applyModeFromToggle() {
+  applyMode()
+}
+function isCollapsed(res: SubmissionResult) {
+  return !!collapsedMap.value[res.question_id]
+}
+function toggleCollapse(res: SubmissionResult) {
+  collapsedMap.value[res.question_id] = !collapsedMap.value[res.question_id]
+}
+function handleTitleClick(res: SubmissionResult) {
+  if (res.is_correct) toggleCollapse(res)
+}
+
 function getImageUrl(res: SubmissionResult) {
-    const sa = (res.student_answer || '')
-    const raw = res.image_path || (sa.startsWith('[IMAGE]') ? sa.split('\n')[0].replace('[IMAGE]', '') : '')
+    const sa = String(res.student_answer || '')
+    let raw = res.image_path || ''
+    if (!raw && sa.startsWith('[IMAGE]')) {
+        const firstLine = sa.split('\n')[0] || ''
+        raw = firstLine.replace('[IMAGE]', '')
+    }
     if (!raw) return ''
     const path = raw.startsWith('/') ? raw : `/${raw}`
     const base = import.meta.env.VITE_API_BASE_URL || ''
@@ -203,8 +300,12 @@ async function viewQuestion(id: number) {
   }
 }
 
-function addPractice(id: number) {
-  practice.add(id)
+function inPractice(id: number) {
+  return practice.list.includes(id)
+}
+async function togglePractice(id: number) {
+  if (inPractice(id)) await practice.remove(id)
+  else await practice.add(id)
 }
 
 function toggleAnswer(qid: number) {
@@ -216,4 +317,62 @@ function isAnswerShown(qid: number) {
 function togglePreviewAnswer() {
   previewShowAnswer.value = !previewShowAnswer.value
 }
+function goHistory() {
+  const id = Number(historyId.value || assignmentId)
+  if (id > 0) router.push(`/results/${id}`)
+}
+
+const correctCount = computed(() => results.value.filter(r => r.is_correct).length)
+const wrongCount = computed(() => results.value.filter(r => r.is_correct === false).length)
+const accuracy = computed(() => {
+  const total = results.value.length || 1
+  return Math.round((correctCount.value / total) * 100)
+})
+
+function initRenderedResults() {
+  listRenderCount.value = Math.min(20, results.value.length)
+  renderedResults.value = results.value.slice(0, listRenderCount.value)
+}
+function handleScroll() {
+  sessionStorage.setItem('results_scrollY', String(window.scrollY))
+  const nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 400
+  if (nearBottom && listRenderCount.value < results.value.length) {
+    listRenderCount.value = Math.min(results.value.length, listRenderCount.value + 20)
+    renderedResults.value = results.value.slice(0, listRenderCount.value)
+  }
+}
+function restoreScroll() {
+  nextTick(() => {
+    const y = Number(sessionStorage.getItem('results_scrollY') || '0')
+    if (y > 0) window.scrollTo({ top: y })
+  })
+}
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll)
+})
 </script>
+
+<style scoped>
+.results-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+}
+@media (max-width: 1024px) {
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.mac-card { transition: all .3s ease; }
+.mac-card:hover { transform: translateY(-1px); }
+.mac-card.is-collapsed { padding: 8px !important; min-height: 44px; overflow: hidden; }
+.mac-card { align-self: start; }
+.card-header { margin-bottom: 8px; font-weight: 600; display:flex; align-items:center; justify-content:space-between; }
+.recommend-chip { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; border:1px solid var(--border-soft); border-radius:10px; background:#fff; }
+@media (max-width: 768px) {
+  .mac-card { font-size: 14px; }
+}
+@media (min-width: 1025px) {
+  .mac-card { font-size: 16px; }
+}
+</style>

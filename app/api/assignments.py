@@ -26,8 +26,12 @@ def upload_assignment(
             deadline_dt = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
         except ValueError:
             pass # Or raise HTTP exception
-            
-    return process_assignment_upload(file, db, teacher_id, class_id, deadline_dt, title)
+    try:
+        return process_assignment_upload(file, db, teacher_id, class_id, deadline_dt, title)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=AssignmentRead)
 def create_assignment_manual(

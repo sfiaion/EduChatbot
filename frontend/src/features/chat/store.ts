@@ -72,7 +72,8 @@ export const useChatStore = defineStore('chat', {
 
       } catch (e) {
         console.error("Chat error:", e)
-        this.messages[idx].content += "\n[Error: Failed to send message]"
+        const cur = this.messages[idx]
+        if (cur) cur.content = (cur.content || '') + "\n[Error: Failed to send message]"
       } finally {
         this.loading = false
       }

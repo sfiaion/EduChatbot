@@ -3,13 +3,27 @@
     <div class="toolbar card-soft" style="margin-bottom:12px;">
       <div class="toolbar-left">
         <h2 class="title-gradient-blue" style="margin:0;">学生作业</h2>
+        <div v-if="submitting" style="margin-top:8px; max-width:480px;">
+          <div style="margin-bottom:6px; color:#374151; font-weight:500;">{{ submitProgressText }}</div>
+          <el-progress :percentage="submitProgress" :status="submitStatus" :text-inside="true" :stroke-width="18" />
+        </div>
       </div>
       <div class="toolbar-right" style="color:#6b7280;">
         共 {{ questions.length }} 题
+        <el-upload
+          action=""
+          :http-request="batchOcrUpload"
+          :show-file-list="false"
+          multiple
+          accept=".jpg,.jpeg,.png"
+        >
+          <el-button size="small" class="btn-outline">批量上传照片填充</el-button>
+        </el-upload>
         <el-button type="primary" size="small" class="btn-ghost" @click="submit" :loading="submitting">提交作业</el-button>
       </div>
     </div>
     <div v-if="loading">加载中...</div>
+    <div v-else-if="questions.length===0" style="color:#909399;">您暂无作业</div>
     <div v-else class="page-grid">
       <div>
         <div
@@ -43,7 +57,7 @@
           <div v-else>
             <el-upload
               action=""
-              :http-request="(opts) => handleImageUpload(opts, q.id)"
+              :http-request="(opts: any) => handleImageUpload(opts, q.id)"
               :show-file-list="false"
               accept=".jpg,.jpeg,.png"
             >
@@ -80,7 +94,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getAssignmentPaper } from '../../../services/modules/assignments'
-import { submitAssignment, uploadSubmissionImage } from '../../../services/modules/submissions'
+import { submitAssignment, uploadSubmissionImage, ocrImage, getSubmissionResults } from '../../../services/modules/submissions'
 import { ElMessage } from 'element-plus'
 import LatexText from '../../../components/LatexText.vue'
 
@@ -90,6 +104,9 @@ const assignmentId = Number(route.params.id)
 
 const loading = ref(false)
 const submitting = ref(false)
+const submitProgress = ref(0)
+const submitStatus = ref<'success'|'exception'|'active'>('active')
+const submitProgressText = ref('准备提交...')
 const questions = ref<{id: number; question: string}[]>([])
 const answers = ref<Record<number, string>>({})
 const inputMethods = ref<Record<number, 'text' | 'image'>>({})
@@ -106,8 +123,14 @@ onMounted(async () => {
       inputMethods.value[q.id] = 'text'
     })
     computeAnswered()
-  } catch (e) {
-    ElMessage.error('加载作业失败')
+  } catch (e: any) {
+    const status = e?.response?.status
+    if (status === 404) {
+      ElMessage.info('您暂无作业')
+      questions.value = []
+    } else {
+      ElMessage.error('加载作业失败')
+    }
   } finally {
     loading.value = false
   }
@@ -130,8 +153,35 @@ async function handleImageUpload(options: any, qid: number) {
     }
 }
 
+async function batchOcrUpload(options: any) {
+  try {
+    const r = await ocrImage(options.file as File)
+    const text = String(r.text || '').trim()
+    const emptyIds = Object.keys(answers.value).map(Number).filter(id => !(answers.value[id] || '').trim())
+    if (emptyIds.length === 0) {
+      ElMessage.info('没有空白题目可填充，已忽略')
+      return
+    }
+    // 按顺序填充第一个空白题
+    const targetId = emptyIds[0]!
+    answers.value[targetId] = text
+    computeAnswered()
+    ElMessage.success('已填充到首个空白题目')
+  } catch (e) {
+    ElMessage.error('OCR 处理失败')
+  }
+}
+
 async function submit() {
   submitting.value = true
+  submitProgress.value = 10
+  submitStatus.value = 'active'
+  submitProgressText.value = '正在提交答案...'
+  const timer = setInterval(() => {
+    if (submitProgress.value < 90) {
+      submitProgress.value += submitProgress.value < 50 ? 6 : 3
+    }
+  }, 400)
   try {
     const payload = {
       assignment_id: assignmentId,
@@ -143,6 +193,7 @@ async function submit() {
     }
     await submitAssignment(payload)
     ElMessage.success('作业已提交，正在批改...')
+    submitProgressText.value = '正在批改...'
 
     // 现实友好：轮询结果到达后再跳转（最多等待 10 秒）
     const start = Date.now()
@@ -150,6 +201,10 @@ async function submit() {
       try {
         const res = await getSubmissionResults(assignmentId, 1)
         if (Array.isArray(res) && res.length > 0) {
+          clearInterval(timer)
+          submitProgress.value = 100
+          submitStatus.value = 'success'
+          submitProgressText.value = '批改完成'
           router.push(`/results/${assignmentId}`)
           return
         }
@@ -158,6 +213,10 @@ async function submit() {
         setTimeout(poll, 800)
       } else {
         // 超时仍然跳转，页面会自己请求并显示加载失败提示
+        clearInterval(timer)
+        submitProgress.value = 95
+        submitStatus.value = 'active'
+        submitProgressText.value = '批改耗时较长，正在跳转结果页...'
         router.push(`/results/${assignmentId}`)
       }
     }

@@ -27,6 +27,7 @@
            accept=".csv,.xlsx,.xls,.json">
            <el-button class="ripple">导入题目</el-button>
         </el-upload>
+        <el-button class="btn-outline" @click="openAssignUpload">上传文档创建作业</el-button>
       </div>
     </div>
 
@@ -86,18 +87,57 @@
         </span>
       </template>
     </el-dialog>
+    
+    <el-dialog v-model="uploadDialog" title="上传文档并创建作业" width="520px">
+      <el-form label-width="110px">
+        <el-form-item label="文件">
+          <el-upload
+            action=""
+            :auto-upload="false"
+            :show-file-list="true"
+            :on-change="handleUploadFileChange"
+            accept=".png,.jpg,.jpeg,.pdf,.docx"
+          >
+            <el-button type="primary">选择文件</el-button>
+          </el-upload>
+          <div style="margin-left:12px; color:#6b7280;">自动解析题目并查重后生成作业</div>
+        </el-form-item>
+        <el-form-item label="标题">
+          <el-input v-model="uploadForm.title" placeholder="如：Chapter 1 作业" />
+        </el-form-item>
+        <el-form-item label="班级 ID">
+          <el-input-number v-model="uploadForm.class_id" :min="1" />
+        </el-form-item>
+        <el-form-item label="截止时间">
+          <el-date-picker v-model="uploadForm.deadline" type="datetime" placeholder="选择时间" />
+        </el-form-item>
+        <div v-if="creating" style="margin-top:8px;">
+          <div style="margin-bottom:6px; color:#374151; font-weight:500;">{{ progressText }}</div>
+          <el-progress :percentage="progress" :status="progressStatus" :text-inside="true" :stroke-width="18" />
+        </div>
+      </el-form>
+      <template #footer>
+        <el-button @click="uploadDialog=false" :disabled="creating">关闭</el-button>
+        <el-button type="primary" @click="doCreateAssignment" :loading="creating">创建作业</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { useProblemsStore } from '../store'
 import { uploadQuestions, type Question } from '../../../services/modules/problems'
 import { ElMessage } from 'element-plus'
 import LatexText from '../../../components/LatexText.vue'
+import { api } from '../../../services/apiClient'
 
 const store = useProblemsStore()
 const dialogVisible = ref(false)
+const uploadDialog = ref(false)
+const selectedFile = ref<File | null>(null)
+const router = useRouter()
 
 const page = ref(1)
 const pageSize = ref(20)
@@ -111,6 +151,15 @@ const form = reactive({
   class_id: 1,
   deadline: ''
 })
+const uploadForm = reactive({
+  title: '',
+  class_id: 1,
+  deadline: ''
+})
+const creating = ref(false)
+const progress = ref(0)
+const progressStatus = ref<'success'|'exception'|'active'>('active')
+const progressText = ref('准备上传...')
 
 onMounted(() => {
   handleFilter()
@@ -138,6 +187,9 @@ function clearFilter() {
 
 function openDialog() {
   dialogVisible.value = true
+}
+function openAssignUpload() {
+  uploadDialog.value = true
 }
 
 async function submitAssignment() {
@@ -170,6 +222,58 @@ async function customRequest(options: any) {
     handleFilter()
   } catch (e) {
     ElMessage.error('上传失败')
+  }
+}
+
+
+function handleUploadFileChange(file: any) {
+  selectedFile.value = (file && file.raw) ? file.raw as File : null
+}
+async function doCreateAssignment() {
+  if (!selectedFile.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+  try {
+    creating.value = true
+    progress.value = 5
+    progressStatus.value = 'active'
+    progressText.value = '正在上传文件...'
+    const timer = setInterval(() => {
+      // 模拟阶段进度：最多到 90%，等待服务端完成
+      if (progress.value < 90) {
+        // 前半段快一些，后半段慢一些
+        progress.value += progress.value < 50 ? 5 : 2
+      }
+    }, 400)
+
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+    formData.append('teacher_id', String(1))
+    formData.append('class_id', String(uploadForm.class_id))
+    if (uploadForm.title) formData.append('title', uploadForm.title)
+    if (uploadForm.deadline) formData.append('deadline', new Date(uploadForm.deadline).toISOString())
+    progressText.value = '正在解析文档并查重...'
+    const r = await api.post('/api/assignments/upload', formData, { timeout: 60000 })
+    progress.value = 100
+    progressStatus.value = 'success'
+    progressText.value = '创建成功'
+    ElMessage.success(`作业创建成功，ID：${r.data.id}`)
+    uploadDialog.value = false
+    selectedFile.value = null
+    clearInterval(timer)
+    creating.value = false
+    // 跳转到学生作业页面以便查看题目
+    if (r?.data?.id) {
+      router.push(`/paper/${r.data.id}`)
+    }
+  } catch (e: any) {
+    console.error(e)
+    const msg = (e?.response?.data?.detail) ? String(e.response.data.detail) : '创建作业失败'
+    progressStatus.value = 'exception'
+    progressText.value = msg
+    ElMessage.error(msg)
+    creating.value = false
   }
 }
 </script>

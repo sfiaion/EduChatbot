@@ -24,3 +24,10 @@ export async function getSubmissionResults(assignmentId: number, studentId: numb
     const r = await api.get(`/api/submissions/results`, { params: { assignment_id: assignmentId, student_id: studentId } })
     return r.data as SubmissionResult[]
 }
+
+export async function ocrImage(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const r = await api.post('/api/submissions/ocr', form)
+  return r.data as { text: string }
+}

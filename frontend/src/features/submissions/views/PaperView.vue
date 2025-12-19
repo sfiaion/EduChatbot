@@ -143,14 +143,16 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { getAssignmentPaper } from '../../../services/modules/assignments'
 import { submitAssignment, uploadSubmissionImage, getSubmissionResults, ocrSplit } from '../../../services/modules/submissions'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import LatexText from '../../../components/LatexText.vue'
+import { useAuthStore } from '../../../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const assignmentId = Number(route.params.id)
 
 const loading = ref(false)
@@ -342,7 +344,7 @@ async function submit() {
   try {
     const payload = {
       assignment_id: assignmentId,
-      student_id: 1, // Hardcoded
+      student_id: authStore.user?.student_id || 0, 
       answers: Object.entries(answers.value).map(([qid, ans]) => ({
         question_id: Number(qid),
         student_answer: ans
@@ -356,7 +358,7 @@ async function submit() {
     const start = Date.now()
     const poll = async () => {
       try {
-        const res = await getSubmissionResults(assignmentId, 1)
+        const res = await getSubmissionResults(assignmentId, authStore.user?.student_id || 0)
         if (Array.isArray(res) && res.length > 0) {
           clearInterval(timer)
           submitProgress.value = 100
@@ -385,4 +387,22 @@ async function submit() {
     submitting.value = false
   }
 }
+
+onBeforeRouteLeave((to, from, next) => {
+  // Check if user has entered any answers and not submitted successfully
+  // submitStatus === 'success' means we are redirecting after submission
+  if (answeredCount.value > 0 && !submitting.value && submitStatus.value !== 'success') {
+    ElMessageBox.confirm(
+      '您有未提交的作业内容，离开后可能丢失进度。是否确认离开？',
+      '提示',
+      { confirmButtonText: '离开', cancelButtonText: '取消', type: 'warning' }
+    ).then(() => {
+      next()
+    }).catch(() => {
+      next(false)
+    })
+  } else {
+    next()
+  }
+})
 </script>

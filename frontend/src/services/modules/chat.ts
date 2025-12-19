@@ -6,11 +6,21 @@ export async function listSessions(userId: number) {
 }
 
 export async function streamChat(payload: { message: string; session_id?: string; user_id?: number }, onChunk: (t: string) => void): Promise<string | null> {
+  const token = localStorage.getItem('token')
   const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : ''
+    },
     body: JSON.stringify(payload)
   })
+
+  if (resp.status === 401) {
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return null
+  }
   
   const sessionId = resp.headers.get('X-Session-Id')
   

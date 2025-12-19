@@ -20,11 +20,11 @@
         
         <!-- Teacher / Admin -->
         <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'admin'" index="/problems"><el-icon><Document /></el-icon><span>题库管理</span></el-menu-item>
-        <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'admin' || authStore.role === 'student'" index="/results/1"><el-icon><DataAnalysis /></el-icon><span>批改结果</span></el-menu-item>
+        <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'admin' || authStore.role === 'student'" index="/results"><el-icon><DataAnalysis /></el-icon><span>批改结果</span></el-menu-item>
         <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'admin'" index="/knowledge"><el-icon><DataAnalysis /></el-icon><span>数据分析</span></el-menu-item>
 
         <!-- Student / Admin -->
-        <el-menu-item v-if="authStore.role === 'student' || authStore.role === 'admin'" index="/paper/1"><el-icon><Edit /></el-icon><span>学生作业</span></el-menu-item>
+        <el-menu-item v-if="authStore.role === 'student' || authStore.role === 'admin'" index="/student-assignments"><el-icon><Edit /></el-icon><span>学生作业</span></el-menu-item>
         <el-menu-item v-if="authStore.role === 'student' || authStore.role === 'admin'" index="/practice"><el-icon><Reading /></el-icon><span>练习</span></el-menu-item>
         <el-menu-item v-if="authStore.role === 'student' || authStore.role === 'admin'" index="/wrongbook"><el-icon><Memo /></el-icon><span>错题本</span></el-menu-item>
       </el-menu>
@@ -94,6 +94,7 @@ const crumbs = computed(() => {
   const map: Record<string, string> = {
     chat: '学习助手',
     problems: '题库管理',
+    'student-assignments': '学生作业',
     paper: '学生作业',
     results: '批改结果',
     practice: '练习',

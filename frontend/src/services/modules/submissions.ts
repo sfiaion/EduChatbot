@@ -38,3 +38,26 @@ export async function ocrSplit(file: File) {
   const r = await api.post('/api/submissions/ocr_split', form)
   return r.data as { blocks: Array<{ question_no: number | null; text: string }> }
 }
+
+export async function getAssignmentStats(assignmentId: number) {
+    const r = await api.get(`/api/submissions/stats/${assignmentId}`)
+    return r.data as {
+        overall: { average_accuracy: number, total_submissions: number, student_count: number },
+        questions: { id: number, text: string, correct_rate: number, wrong_count: number }[],
+        students: { id: number, name: string, accuracy: number, submitted: boolean }[],
+        weak_points: { tag: string, count: number }[],
+        error_distribution: { name: string, value: number }[]
+    }
+}
+
+export async function getAssignmentsList() {
+    const r = await api.get('/api/assignments/')
+    return r.data as Array<{
+        id: number
+        title: string
+        deadline: string | null
+        created_at: string
+        teacher_id: number
+        class_id: number
+    }>
+}

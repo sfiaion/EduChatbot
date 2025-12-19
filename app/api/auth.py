@@ -87,10 +87,20 @@ def update_profile(
 
 def _build_user_response(user: User) -> UserResponse:
     name = ""
+    class_name = None
+    teacher_name = None
+    classes = []
+
     if user.student:
         name = user.student.name
+        if user.student.clazz:
+            class_name = user.student.clazz.name
+            if user.student.clazz.teacher:
+                teacher_name = user.student.clazz.teacher.name
     elif user.teacher:
         name = user.teacher.name
+        if user.teacher.classes:
+            classes = [c.name for c in user.teacher.classes]
     
     return UserResponse(
         id=user.id,
@@ -102,5 +112,8 @@ def _build_user_response(user: User) -> UserResponse:
         role=user.role,
         name=name,
         student_id=user.student.id if user.student else None,
-        teacher_id=user.teacher.id if user.teacher else None
+        teacher_id=user.teacher.id if user.teacher else None,
+        class_name=class_name,
+        teacher_name=teacher_name,
+        classes=classes
     )

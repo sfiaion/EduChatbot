@@ -5,13 +5,42 @@ from datetime import datetime
 
 from app.db.session import get_db
 from app.schemas.assignment import AssignmentCreate, AssignmentRead, AssignmentStats
-from app.crud.assignment import create_assignment, get_assignment, get_assignment_stats_base
+from app.crud.assignment import create_assignment, get_assignment, get_assignment_stats_base, get_assignments_by_teacher, get_assignments_by_class
 from app.services.assignment_pipeline import process_assignment_upload
-from app.models.question import Question
+from app.models.question import Question, Assignment, StudentSubmission
 from app.models.user import User
-from .deps import get_current_active_teacher
+from .deps import get_current_active_teacher, get_current_user
 
 router = APIRouter(prefix="/assignments", tags=["Assignments"])
+
+@router.get("/", response_model=List[AssignmentRead])
+def list_assignments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role == "teacher":         
+        if not current_user.teacher:
+             return []
+        return get_assignments_by_teacher(db, current_user.teacher.id)
+    elif current_user.role == "student":
+        if not current_user.student or not current_user.student.class_id:
+             return []
+        assignments = get_assignments_by_class(db, current_user.student.class_id)
+        # Check submissions
+        student_id = current_user.student.id
+        for a in assignments:
+            # Check if any submission exists for this assignment
+            sub = db.query(StudentSubmission).filter(
+                StudentSubmission.assignment_id == a.id,
+                StudentSubmission.student_id == student_id
+            ).first()
+            a.is_submitted = True if sub else False
+        return assignments
+    elif current_user.role == "admin":
+         # Admin sees all for now, or implement pagination
+         return db.query(Assignment).all()
+    else:
+        return []
 
 @router.post("/upload", response_model=AssignmentRead)
 def upload_assignment(

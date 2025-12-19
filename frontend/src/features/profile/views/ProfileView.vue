@@ -40,6 +40,18 @@
                <el-tag :type="form.role === 'admin' ? 'danger' : 'primary'">{{ form.role }}</el-tag>
             </el-form-item>
 
+            <el-form-item label="班级" v-if="form.role === 'student' && form.className">
+               <el-input v-model="form.className" disabled />
+            </el-form-item>
+
+            <el-form-item label="班主任/老师" v-if="form.role === 'student' && form.teacherName">
+               <el-input v-model="form.teacherName" disabled />
+            </el-form-item>
+
+             <el-form-item label="负责班级" v-if="form.role === 'teacher' && form.classes && form.classes.length">
+               <el-tag v-for="c in form.classes" :key="c" style="margin-right:8px;">{{ c }}</el-tag>
+            </el-form-item>
+
             <el-form-item label="手机号">
               <el-input v-model="form.phone" placeholder="绑定手机号" />
             </el-form-item>
@@ -83,7 +95,10 @@ const form = reactive({
   phone: '',
   email: '',
   avatar: '',
-  role: ''
+  role: '',
+  className: '',
+  teacherName: '',
+  classes: [] as string[]
 })
 
 async function handleUpload(options: UploadRequestOptions) {
@@ -123,7 +138,10 @@ onMounted(async () => {
         phone: authStore.user.phone || '',
         email: authStore.user.email || '',
         avatar: authStore.user.avatar || '',
-        role: authStore.user.role
+        role: authStore.user.role,
+        className: (authStore.user as any).class_name || '',
+        teacherName: (authStore.user as any).teacher_name || '',
+        classes: (authStore.user as any).classes || []
     })
   }
 })

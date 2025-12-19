@@ -1,5 +1,6 @@
 <template>
-  <div class="page-wrap">
+  <TeacherDashboard v-if="showDashboard" :assignmentId="assignmentId" />
+  <div v-else class="page-wrap">
     <div class="toolbar card-soft" style="margin-bottom:12px;">
       <div class="toolbar-left">
         <h2 class="title-gradient-teal" style="margin:0;">批改结果</h2>
@@ -181,11 +182,17 @@ import { ElMessage } from 'element-plus'
 import { nextTick, onBeforeUnmount, computed } from 'vue'
 import LatexText from '../../../components/LatexText.vue'
 import { usePracticeStore } from '../../practice/store'
+import TeacherDashboard from '../components/TeacherDashboard.vue'
+import { useAuthStore } from '../../../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const assignmentId = Number(route.params.assignmentId)
 const studentId = Number(route.params.studentId) || 1
+
+const isTeacher = computed(() => ['teacher', 'admin'].includes(authStore.user?.role || ''))
+const showDashboard = computed(() => isTeacher.value && !route.params.studentId)
 
 const loading = ref(false)
 const results = ref<SubmissionResult[]>([])
@@ -201,12 +208,33 @@ const collapsedMap = ref<Record<number, boolean>>({})
 const showAll = ref<boolean>(localStorage.getItem('results_view_mode') === 'all')
 const listRenderCount = ref(20)
 
-onMounted(async () => {
-  if (!assignmentId) return
+// Watch for route changes to handle component reuse (e.g. Dashboard -> Detail)
+import { watch } from 'vue'
+watch(
+  () => route.path,
+  async () => {
+    // Re-evaluate IDs and permissions
+    const newAssignId = Number(route.params.assignmentId)
+    const newStudentId = Number(route.params.studentId) || 1
+    
+    // Reset state
+    results.value = []
+    loading.value = false
+    
+    // Check dashboard condition again (computed properties update automatically, but logic needs to run)
+    if (showDashboard.value) return 
+    
+    // Load data
+    await loadData(newAssignId, newStudentId)
+  }
+)
+
+async function loadData(aid: number, sid: number) {
+  if (!aid) return
   loading.value = true
   try {
-    await practice.init(studentId)
-    results.value = await getSubmissionResults(assignmentId, studentId)
+    await practice.init(sid)
+    results.value = await getSubmissionResults(aid, sid)
     for (const r of results.value) {
       try {
         const q = await getProblemById(r.question_id)
@@ -223,6 +251,11 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  if (showDashboard.value) return
+  await loadData(assignmentId, studentId)
   window.addEventListener('scroll', handleScroll, { passive: true })
 })
 

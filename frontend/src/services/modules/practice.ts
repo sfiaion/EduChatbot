@@ -12,3 +12,8 @@ export async function savePracticeList(studentId: number, ids: number[]) {
 export async function savePracticeRecord(studentId: number, questionId: number, answer: string) {
   await api.post('/api/practice/record', { student_id: studentId, question_id: questionId, answer })
 }
+
+export async function submitPracticeAnswer(questionId: number, answer: string) {
+  const r = await api.post('/api/practice/submit', { question_id: questionId, answer })
+  return r.data as { is_correct: boolean, correct_answer: string }
+}

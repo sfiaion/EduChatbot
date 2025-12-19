@@ -33,6 +33,9 @@ class UserResponse(BaseModel):
     name: str
     student_id: Optional[int] = None
     teacher_id: Optional[int] = None
+    class_name: Optional[str] = None
+    teacher_name: Optional[str] = None
+    classes: Optional[list[str]] = None
 
     class Config:
         from_attributes = True

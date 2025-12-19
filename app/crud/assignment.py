@@ -36,3 +36,9 @@ def get_assignment_stats_base(db: Session, assignment_id: int):
         "total_students": submitted_count, # 修改为显示已提交人数，更直观
         "total_questions": len(question_ids)
     }
+
+def get_assignments_by_teacher(db: Session, teacher_id: int):
+    return db.query(Assignment).filter(Assignment.teacher_id == teacher_id).all()
+
+def get_assignments_by_class(db: Session, class_id: int):
+    return db.query(Assignment).filter(Assignment.class_id == class_id).all()

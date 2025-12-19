@@ -9,6 +9,11 @@ export interface AssignmentCreate {
   assigned_question_ids: number[]
 }
 
+export async function getAssignmentsList() {
+  const r = await api.get('/api/assignments/')
+  return r.data as any[]
+}
+
 export async function createAssignment(data: AssignmentCreate) {
   return api.post('/api/assignments/', data)
 }

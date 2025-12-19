@@ -101,6 +101,8 @@ def get_difficulty(db: Session, question_id: int) -> str:
         Question.id == question_id
     ).first()
     # print(f"[DEBUG] qid={question_id}, query result={row}")
+    if not row:
+        return "easy"
     return row[0]
 
 

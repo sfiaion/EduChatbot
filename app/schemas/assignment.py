@@ -21,6 +21,7 @@ class AssignmentRead(AssignmentBase):
     assigned_student_ids: List[int]
     assigned_question_ids: List[int]
     created_at: datetime
+    is_submitted: Optional[bool] = False
 
     # Support Pydantic v2 (use 'orm_mode = True' if on v1)
     model_config = ConfigDict(from_attributes=True)

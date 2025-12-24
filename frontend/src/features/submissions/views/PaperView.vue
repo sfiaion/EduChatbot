@@ -389,6 +389,7 @@ async function submit() {
 }
 
 onBeforeRouteLeave((to, from, next) => {
+  void to; void from;
   // Check if user has entered any answers and not submitted successfully
   // submitStatus === 'success' means we are redirecting after submission
   if (answeredCount.value > 0 && !submitting.value && submitStatus.value !== 'success') {

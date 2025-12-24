@@ -81,10 +81,8 @@ import { useAuthStore } from '../../../stores/auth'
 import { ElMessage, type UploadRequestOptions } from 'element-plus'
 import { api } from '../../../services/apiClient'
 
-import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
-const router = useRouter()
 const loading = ref(false)
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
 

@@ -21,7 +21,8 @@ def get_analyzer(
 ) -> KnowledgeGraphAnalyzer:
     try:
         sd = datetime.fromisoformat(start_date)
-        ed = datetime.fromisoformat(end_date)
+        ed_raw = datetime.fromisoformat(end_date)
+        ed = ed_raw.replace(hour=23, minute=59, second=59, microsecond=999999)
     except ValueError:
         raise HTTPException(status_code=400, detail="日期格式错误，应为 YYYY-MM-DD")
     if not is_owned_class(db, class_id, current_user.teacher.id):
@@ -48,6 +49,15 @@ def get_class_breakpoints(
         for name, diff in breakpoints
     ]
 
+@router.get("/candidates", response_model=List[str])
+def get_candidate_nodes(
+        request: Request,
+        limit: int = Query(20, description="limit")
+):
+    analyzer = request.state.analyzer
+    sorted_nodes = sorted(analyzer.total_errors.items(), key=lambda x: x[1], reverse=True)
+    return [name for name, count in sorted_nodes[:limit]]
+
 # 分析掌握依赖（显示最短/最长前置路径长度，高频前置节点）
 @router.get("/node/{name}", response_model=NodeAnalysisResponse)
 def get_node_data(
@@ -56,26 +66,34 @@ def get_node_data(
 ):
     analyzer = request.state.analyzer
     node = get_knowledge_node_by_name(analyzer.db, name)
-    if not node:
-        raise HTTPException(status_code=404, detail=f"知识点 '{name}' 不存在")
     longest_path, preceding_node_names = analyzer.analyze_path_dependency(name)
-
+    if longest_path == -1:
+        raise HTTPException(status_code=404, detail=f"知识点 '{name}' 不在知识图谱中")
+    # 容错：关系型库没有该节点时，内容置空，错误统计按0与时间区间构造
+    content = node.content if node else ""
+    total_err = analyzer.total_errors.get(name, 0)
+    # 构造完整日期字典
+    cur = analyzer.start_date.date()
+    end = analyzer.end_date.date()
+    daily = {}
+    while cur <= end:
+        k = str(cur)
+        v = (analyzer.daily_errors.get(name) or {}).get(k, 0)
+        daily[k] = v
+        from datetime import timedelta
+        cur = cur + timedelta(days=1)
     return NodeAnalysisResponse(
         node=CenterNode(
             name=name,
-            # 当前节点的总错误次数
-            total_errors=analyzer.total_errors.get(name),
-            # 当前节点的每日错误，用于折线图
-            daily_errors=analyzer.daily_errors.get(name),
-            content=node.content,
-            # 当前节点的最长前置路径
+            total_errors=total_err,
+            daily_errors=daily,
+            content=content,
             longest_path=longest_path
         ),
-        # 高频前置节点，以及它们的总错误次数
         preceding_nodes=[
             PrecedingNode(
                 name=n,
-                total_errors=analyzer.total_errors.get(n)
+                total_errors=analyzer.total_errors.get(n, 0)
             )
             for n in preceding_node_names
         ]

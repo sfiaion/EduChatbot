@@ -10,6 +10,8 @@ from app.services.assignment_pipeline import process_assignment_upload
 from app.models.question import Question, Assignment, StudentSubmission
 from app.models.user import User
 from .deps import get_current_active_teacher, get_current_user
+from app.api.notifications import create_notification
+from app.models.user import Student, Class
 
 router = APIRouter(prefix="/assignments", tags=["Assignments"])
 
@@ -59,7 +61,15 @@ def upload_assignment(
         except ValueError:
             pass # Or raise HTTP exception
     try:
-        return process_assignment_upload(file, db, teacher_id, class_id, deadline_dt, title)
+        a = process_assignment_upload(file, db, teacher_id, class_id, deadline_dt, title)
+        try:
+            create_notification(db, current_user.id, "已布置作业", f"作业「{a.title or a.id}」已创建", "assignment", a.id)
+            students = db.query(Student).filter(Student.class_id == class_id).all()
+            for s in students:
+                create_notification(db, s.user_id, "新的作业", f"收到老师布置的作业「{a.title or a.id}」", "assignment", a.id)
+        except Exception:
+            pass
+        return a
     except FileNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -71,7 +81,16 @@ def create_assignment_manual(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_teacher)
 ):
-    return create_assignment(db, assignment, current_user.teacher.id)
+    a = create_assignment(db, assignment, current_user.teacher.id)
+    try:
+        create_notification(db, current_user.id, "已布置作业", f"作业「{a.title or a.id}」已创建", "assignment", a.id)
+        if a.class_id:
+            students = db.query(Student).filter(Student.class_id == a.class_id).all()
+            for s in students:
+                create_notification(db, s.user_id, "新的作业", f"收到老师布置的作业「{a.title or a.id}」", "assignment", a.id)
+    except Exception:
+        pass
+    return a
 
 @router.get("/{id}", response_model=AssignmentRead)
 def read_assignment(id: int, db: Session = Depends(get_db)):

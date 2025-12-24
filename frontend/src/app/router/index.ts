@@ -17,6 +17,8 @@ const router = createRouter({
     { path: '/ocr', component: () => import('@/features/submissions/views/OCRView.vue') },
     { path: '/practice', component: () => import('@/features/practice/views/PracticeView.vue') },
     { path: '/wrongbook', component: () => import('@/features/wrongbook/views/WrongBook.vue') },
+    { path: '/notifications', component: () => import('@/features/notifications/views/NotificationsView.vue') },
+    { path: '/classes', component: () => import('@/features/classes/views/ClassManagementView.vue') },
     { path: '/profile', component: () => import('@/features/profile/views/ProfileView.vue') },
     { path: '/', redirect: '/chat' }
   ]

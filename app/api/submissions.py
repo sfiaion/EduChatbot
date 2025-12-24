@@ -16,6 +16,7 @@ from ..services.submission import process_submission
 from pydantic import BaseModel
 from ..models.user import User, Student
 from .deps import get_current_active_student, get_current_user
+from app.api.notifications import create_notification
 
 router = APIRouter(prefix="/submissions", tags=["Submissions"])
 
@@ -210,6 +211,10 @@ def submit_assignment(
     
     count = create_submissions(db, sub)
     results = process_submission(sub, db)
+    try:
+        create_notification(db, current_user.id, "作业已提交", f"已提交作业 {sub.assignment_id}", "submission", sub.assignment_id)
+    except Exception:
+        pass
     return {"status": "ok", "submitted_count": count, "results": results}
 
 @router.post("/upload_image")

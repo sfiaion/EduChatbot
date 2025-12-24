@@ -10,7 +10,7 @@ from ..schemas.question import QuestionRead
 from typing import List, Optional
 from pydantic import BaseModel
 from app.models.user import User
-from .deps import get_current_active_teacher, get_current_active_student
+from .deps import get_current_active_teacher, get_current_active_student, get_current_user
 
 class QuestionListResponse(BaseModel):
     total: int
@@ -43,9 +43,20 @@ def upload_question_file(
 def recommend_questions(
     req: RecommendationRequest, 
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_student)
+    current_user: User = Depends(get_current_user)
 ):
-    req.student_id = current_user.student.id
+    # If student, force student_id to self
+    if current_user.role == "student":
+        if not current_user.student:
+             raise HTTPException(status_code=400, detail="Student profile not found")
+        req.student_id = current_user.student.id
+    # If teacher/admin, allow passing student_id (must be provided in req)
+    elif current_user.role in ["teacher", "admin"]:
+        if not req.student_id:
+             raise HTTPException(status_code=400, detail="Student ID is required for teacher request")
+    else:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     question = get_question_by_id(db, req.question_id)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")

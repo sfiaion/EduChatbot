@@ -17,6 +17,8 @@
       <el-menu :collapse="collapsed" :default-active="active" router class="side-nav">
         <!-- Common -->
         <el-menu-item index="/chat"><el-icon><ChatLineRound /></el-icon><span>学习助手</span></el-menu-item>
+        <el-menu-item index="/notifications"><el-icon><Bell /></el-icon><span>通知</span></el-menu-item>
+        <el-menu-item index="/classes"><el-icon><User /></el-icon><span>班级管理</span></el-menu-item>
         
         <!-- Teacher / Admin -->
         <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'admin'" index="/problems"><el-icon><Document /></el-icon><span>题库管理</span></el-menu-item>
@@ -41,7 +43,7 @@
             <el-button v-if="authStore.role === 'teacher' || authStore.role === 'admin'" size="small" type="primary" class="ripple" @click="go('/problems')">新建作业</el-button>
             <el-button v-if="authStore.role === 'teacher' || authStore.role === 'admin'" size="small" class="ripple btn-outline" @click="go('/knowledge')">进入分析</el-button>
           </div>
-          <el-badge :value="3" class="item"><el-button circle><el-icon><Bell /></el-icon></el-button></el-badge>
+          <el-badge :value="unreadCount" class="item"><el-button circle @click="go('/notifications')"><el-icon><Bell /></el-icon></el-button></el-badge>
           
           <el-dropdown trigger="click" @command="handleCommand">
             <div class="user-profile-header">
@@ -67,26 +69,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ChatLineRound, Document, Edit, Reading, Memo, DataAnalysis, Bell, Fold, Expand, User } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import { listNotifications } from '../../services/modules/notifications'
 
 const collapsed = ref(false)
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const unreadCount = ref(0)
 
 const isAuthPage = computed(() => ['/login', '/register'].includes(route.path))
-const roleDisplay = computed(() => {
-  const r = authStore.role
-  if (r === 'admin') return '管理员'
-  if (r === 'teacher') return '教师'
-  if (r === 'student') return '学生'
-  return ''
-})
-
 const active = computed(() => route.path)
 const asideWidth = computed(() => collapsed.value ? '64px' : 'clamp(200px, 22vw, 260px)')
 const crumbs = computed(() => {
@@ -101,7 +97,9 @@ const crumbs = computed(() => {
     wrongbook: '错题本',
     knowledge: '数据分析',
     stats: '作业统计',
-    profile: '个人资料'
+    profile: '个人资料',
+    notifications: '通知',
+    classes: '班级管理'
   }
   return parts.map(p => map[p] || p)
 })
@@ -144,6 +142,13 @@ const weightClass = computed(() => {
 
 function go(path: string) { router.push(path) }
 function toggleCollapse() { collapsed.value = !collapsed.value }
+async function loadUnread() {
+  try {
+    const items = await listNotifications()
+    unreadCount.value = items.filter(i => !i.is_read).length
+  } catch {}
+}
+onMounted(loadUnread)
 
 function handleCommand(command: string) {
   if (command === 'profile') {

@@ -18,3 +18,6 @@ class CorrectionResponse(BaseModel):
     message: Optional[str] = None      # 正确时填充
     error_type: Optional[ErrorType] = None   # 错误时填充
     analysis: Optional[str] = None     # 错误时填充
+    knowledge_node_id: Optional[int] = None
+    knowledge_node_id: Optional[int] = None
+    knowledge_id: Optional[int] = None

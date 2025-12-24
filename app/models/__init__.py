@@ -9,3 +9,5 @@ Base = declarative_base()
 from .user import *
 from .question import *
 from .chat_sessions import *
+from .clazz import *
+from .notification import *

@@ -125,6 +125,7 @@ onMounted(() => window.addEventListener('keydown', handleKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', handleKey))
 
 onBeforeRouteLeave((to, from, next) => {
+  void to; void from;
   if (answer.value && !isSubmitted.value) {
      ElMessageBox.confirm(
        '当前题目未提交，是否保存进度？',

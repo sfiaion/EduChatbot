@@ -7,7 +7,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from app.db.init_db import init_db
-from app.api import correction, submissions, graph_strcture, graph_analysis, problems, teacher, knowledge, chat, assignments, practice, wrongbook, auth, upload
+from app.api import correction, submissions, graph_strcture, graph_analysis, problems, teacher, knowledge, chat, assignments, practice, wrongbook, auth, upload, classes, notifications
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -44,6 +44,8 @@ app.include_router(knowledge.router, prefix="/api", tags=["Knowledge"])
 app.include_router(assignments.router, prefix="/api", tags=["Assignments"])
 app.include_router(practice.router, prefix="/api", tags=["Practice"])
 app.include_router(wrongbook.router, prefix="/api", tags=["Wrongbook"])
+app.include_router(classes.router, prefix="/api", tags=["Classes"])
+app.include_router(notifications.router, prefix="/api", tags=["Notifications"])
 
 
 

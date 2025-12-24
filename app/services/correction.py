@@ -21,21 +21,20 @@ def grade_answer_service(question_id: int, student_answer: str, db: Session):
         student_answer,
         question.answer
     )
-    print(result)
-    if (not result.is_correct
-            and result.error_type == ErrorType.KNOWLEDGE
-            and (function_types or function_properties)):
-        print("function_types:", function_types)
-        print("function_properties:", function_properties)
+    knowledge_id = None
+    if not result.is_correct:
         candidates = get_candidate_knowledge_nodes(db, function_types, function_properties)
-        for candidate in candidates:
-            print("candidate.name:", candidate.name)
         knowledge_id = identify_knowledge_from_candidates(
             question=question.question,
             student_answer=student_answer,
             correct_answer=question.answer,
             candidates=candidates
         )
-        print(f"知识点 ID: {knowledge_id}")
-
+        if (not knowledge_id or int(knowledge_id) <= 0) and candidates:
+            knowledge_id = int(candidates[0].id)
+    try:
+        if knowledge_id and int(knowledge_id) > 0:
+            setattr(result, "knowledge_node_id", int(knowledge_id))
+    except Exception:
+        pass
     return result

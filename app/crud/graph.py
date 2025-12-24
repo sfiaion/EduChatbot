@@ -62,3 +62,8 @@ def search_knowledge_nodes_by_name(db: Session, q: str):
 
     results = query.all()
     return [{"name": name} for (name,) in results]
+
+def list_all_knowledge_nodes(db: Session, limit: int = 500):
+    query = db.query(KnowledgeNode.name).order_by(KnowledgeNode.name.asc()).limit(limit)
+    results = query.all()
+    return [{"name": name} for (name,) in results]

@@ -6,6 +6,8 @@ from app.schemas.submission import SubmissionCreate
 from app.models.question import StudentSubmission, ErrorAnalysis
 from app.services.correction import grade_answer_service
 from app.ml.ocr import extract_answer_from_image
+from app.api.notifications import create_notification
+from app.models.user import Student as StudentModel
 
 APP_ROOT = pathlib.Path(__file__).resolve().parent.parent
 STATIC_SUB_DIR = APP_ROOT / "static" / "submissions"
@@ -56,6 +58,14 @@ def process_submission(sub: SubmissionCreate, db: Session) -> List[Dict[str, Any
                         db.add(ea)
                     ea.error_type = result.error_type
                     ea.analysis = result.analysis
+                    try:
+                        kid = getattr(result, "knowledge_node_id", None)
+                        if not kid:
+                            kid = getattr(result, "knowledge_id", None)
+                        if kid and int(kid) > 0:
+                            ea.knowledge_node_id = int(kid)
+                    except Exception:
+                        pass
             db.commit()
             results.append({
                 "question_id": ans.question_id,
@@ -65,4 +75,11 @@ def process_submission(sub: SubmissionCreate, db: Session) -> List[Dict[str, Any
                 "error_type": submission_record.error_analysis.error_type if (submission_record.error_analysis and submission_record.is_correct is False) else None,
                 "analysis": submission_record.error_analysis.analysis if (submission_record.error_analysis and submission_record.is_correct is False) else None
             })
+    # Notify grading completion (best-effort)
+    try:
+        student = db.query(StudentModel).filter(StudentModel.id == sub.student_id).first()
+        if student and student.user_id:
+            create_notification(db, student.user_id, "批改完成", f"作业 {sub.assignment_id} 已批改完成", "grading", sub.assignment_id)
+    except Exception:
+        pass
     return results

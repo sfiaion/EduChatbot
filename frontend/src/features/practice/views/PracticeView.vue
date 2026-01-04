@@ -64,8 +64,10 @@ import { getProblemById } from '../../../services/modules/problems'
 import { submitPracticeAnswer } from '../../../services/modules/practice'
 import LatexText from '../../../components/LatexText.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAuthStore } from '../../../stores/auth'
 
 const store = usePracticeStore()
+const authStore = useAuthStore()
 const questions = ref<{id:number; question:string; answer:string}[]>([])
 const index = ref(0)
 const answer = ref('')
@@ -76,7 +78,11 @@ const correctAnswer = ref('')
 const current = computed(() => questions.value[index.value] || { id:0, question:'', answer:'' })
 
 onMounted(async () => {
-  await store.init(1)
+  if (!authStore.user) {
+    await authStore.fetchMe()
+  }
+  const studentId = authStore.user?.student_id || 1
+  await store.init(studentId)
   for (const id of store.list) {
     try {
       const q = await getProblemById(id)

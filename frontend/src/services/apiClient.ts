@@ -1,7 +1,10 @@
 import axios from 'axios'
 
+const isDevProxy = typeof window !== 'undefined' && /:\/\/(localhost|127\.0\.0\.1):5173$/.test(window.location.origin)
+const baseURL = isDevProxy ? '' : (import.meta.env.VITE_API_BASE_URL || '')
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  baseURL,
   timeout: 30000
 })
 

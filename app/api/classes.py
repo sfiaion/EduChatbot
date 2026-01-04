@@ -4,7 +4,7 @@ from typing import List, Optional
 from app.db.session import get_db
 from app.models.user import User, Student, Teacher, Class
 from app.models.clazz import ClassRequest
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_active_teacher
 from app.api.notifications import create_notification
 from pydantic import BaseModel
 from datetime import datetime
@@ -16,6 +16,10 @@ class ClassMember(BaseModel):
     name: str
     role: str # 'teacher' or 'student'
     student_number: Optional[str] = None
+    
+class ClassInfo(BaseModel):
+    id: int
+    name: str
 
 class ClassRequestOut(BaseModel):
     id: int
@@ -63,6 +67,29 @@ def get_class_members(
             unique_members.append(m)
             
     return unique_members
+    
+@router.get("/my", response_model=List[ClassInfo])
+def list_my_classes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_teacher)
+):
+    if not current_user.teacher:
+        return []
+    return [ClassInfo(id=c.id, name=c.name) for c in current_user.teacher.classes or []]
+
+@router.post("/create")
+def create_class(
+    class_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_teacher)
+):
+    if not class_name or not class_name.strip():
+        raise HTTPException(status_code=400, detail="Class name required")
+    clazz = Class(name=class_name.strip(), teacher_id=current_user.teacher.id)
+    db.add(clazz)
+    db.commit()
+    db.refresh(clazz)
+    return {"class_id": clazz.id, "class_name": clazz.name}
 
 @router.post("/join")
 def join_class(
@@ -105,6 +132,7 @@ def join_class(
 @router.post("/invite")
 def invite_student(
     student_username: str,
+    class_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -114,12 +142,10 @@ def invite_student(
     target_user = db.query(User).filter(User.username == student_username, User.role == "student").first()
     if not target_user or not target_user.student:
         raise HTTPException(status_code=404, detail="Student not found")
-        
-    # Assuming teacher has at least one class, pick the first one for now
-    if not current_user.teacher.classes:
-        raise HTTPException(status_code=400, detail="You have no classes")
     
-    clazz = current_user.teacher.classes[0]
+    clazz = db.query(Class).filter(Class.id == class_id, Class.teacher_id == current_user.teacher.id).first()
+    if not clazz:
+        raise HTTPException(status_code=404, detail="Class not found or not owned")
     
     if target_user.student.class_id == clazz.id:
          raise HTTPException(status_code=400, detail="Student already in class")

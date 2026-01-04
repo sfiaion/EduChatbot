@@ -28,11 +28,11 @@ def upload_questions(file: UploadFile, db: Session, teacher_id: int):
     try:
         with open(input_path, "wb") as f:
             f.write(file.file.read())
-        file_to_questions(input_path, db, tmp_dir)
-        return {"status": "success"}
+        stats = file_to_questions(input_path, db, tmp_dir)
+        return {"status": "success", **stats}
     except Exception as e:
         print("Error during upload:", e)
-        return {"error": str(e)}
+        return {"status": "error", "error": str(e)}
     finally:
         clear_dir(tmp_dir)
 
@@ -123,6 +123,10 @@ def file_to_questions(path, db: Session, tmp_dir: str):
         ids_np = np.array(new_ids, dtype=np.int64)
         faiss_service.add(vectors_np, ids_np)
 
+    total = len(raw_questions)
+    created = len(new_ids)
+    duplicates = max(total - created, 0)
+    return {"total": total, "created": created, "duplicates": duplicates}
 
 
 def normalize_text(text):

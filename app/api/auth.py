@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi.security import OAuth2PasswordRequestForm
 from app.db.session import get_db
 from app.core.security import get_password_hash, verify_password, create_access_token
@@ -67,23 +68,28 @@ def update_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if profile_in.nickname is not None:
-        current_user.nickname = profile_in.nickname
-    if profile_in.phone is not None:
-        # Check uniqueness if phone is provided
-        if profile_in.phone:
-            existing_phone = db.query(User).filter(User.phone == profile_in.phone).first()
-            if existing_phone and existing_phone.id != current_user.id:
-                 raise HTTPException(status_code=400, detail="Phone already in use")
-        current_user.phone = profile_in.phone
-    if profile_in.email is not None:
-        current_user.email = profile_in.email
-    if profile_in.avatar is not None:
-        current_user.avatar = profile_in.avatar
-        
-    db.commit()
-    db.refresh(current_user)
-    return _build_user_response(current_user)
+    try:
+        if profile_in.nickname is not None:
+            current_user.nickname = profile_in.nickname
+        if profile_in.phone is not None:
+            if profile_in.phone:
+                existing_phone = db.query(User).filter(User.phone == profile_in.phone).first()
+                if existing_phone and existing_phone.id != current_user.id:
+                    raise HTTPException(status_code=400, detail="Phone already in use")
+            current_user.phone = profile_in.phone
+        if profile_in.email is not None:
+            current_user.email = profile_in.email
+        if profile_in.avatar is not None:
+            current_user.avatar = profile_in.avatar
+        db.commit()
+        db.refresh(current_user)
+        return _build_user_response(current_user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Profile update violates uniqueness constraints")
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Profile update failed")
 
 def _build_user_response(user: User) -> UserResponse:
     name = ""

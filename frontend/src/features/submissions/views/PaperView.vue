@@ -382,7 +382,32 @@ async function submit() {
     poll()
     
   } catch (e) {
-    ElMessage.error('Submission failed')
+    submitProgressText.value = 'Submission encountered issues, verifying results...'
+    submitStatus.value = 'active'
+    const start = Date.now()
+    const verify = async () => {
+      try {
+        const res = await getSubmissionResults(assignmentId, authStore.user?.student_id || 0)
+        if (Array.isArray(res) && res.length > 0) {
+          clearInterval(timer)
+          submitProgress.value = 100
+          submitStatus.value = 'success'
+          submitProgressText.value = 'Grading completed'
+          router.push(`/results/${assignmentId}`)
+          return
+        }
+      } catch (_) {}
+      if (Date.now() - start < 10000) {
+        setTimeout(verify, 800)
+      } else {
+        clearInterval(timer)
+        submitProgress.value = 0
+        submitStatus.value = 'exception'
+        submitProgressText.value = 'Submission failed'
+        ElMessage.error('Submission failed')
+      }
+    }
+    verify()
   } finally {
     submitting.value = false
   }

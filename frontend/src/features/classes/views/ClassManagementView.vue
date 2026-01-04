@@ -39,9 +39,19 @@
       </div>
       <div class="mac-card soft-hover" style="padding:12px;">
         <div class="panel-title">Invite Students</div>
-        <div style="display:flex; gap:8px; margin-top:8px;">
+        <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
           <el-input v-model="inviteName" placeholder="Student Username" style="max-width:240px;" />
+          <el-select v-model="selectedClassId" placeholder="Select Class" style="width: 220px;">
+            <el-option v-for="c in teacherClasses" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
           <el-button type="primary" @click="invite">Send Invite</el-button>
+        </div>
+      </div>
+      <div class="mac-card soft-hover" style="padding:12px;">
+        <div class="panel-title">Create New Class</div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <el-input v-model="newClassName" placeholder="Class Name" style="max-width:240px;" />
+          <el-button type="primary" @click="createNewClass">Create</el-button>
         </div>
       </div>
     </div>
@@ -86,7 +96,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { listMembers, listRequests, handleRequest, inviteStudent, applyJoin, type ClassMember, type ClassRequest } from '../../../services/modules/classes'
+import { listMembers, listRequests, handleRequest, inviteStudent, applyJoin, createClass, listTeacherClasses, type ClassMember, type ClassRequest } from '../../../services/modules/classes'
 import { useAuthStore } from '../../../stores/auth'
 import { ElMessage } from 'element-plus'
 
@@ -96,11 +106,18 @@ const members = ref<ClassMember[]>([])
 const requests = ref<ClassRequest[]>([])
 const inviteName = ref('')
 const applyClass = ref('')
+const teacherClasses = ref<Array<{ id: number; name: string }>>([])
+const selectedClassId = ref<number | null>(null)
+const newClassName = ref('')
 
 async function refresh() {
   try {
     members.value = await listMembers()
     requests.value = await listRequests()
+    if (!isStudent.value) {
+      teacherClasses.value = await listTeacherClasses()
+      selectedClassId.value = teacherClasses.value.length > 0 ? teacherClasses.value[0]!.id : null
+    }
   } catch {
     ElMessage.error('Load failed')
   }
@@ -122,8 +139,12 @@ async function reject(r: ClassRequest) {
 
 async function invite() {
   if (!inviteName.value) return
+  if (!selectedClassId.value) {
+    ElMessage.warning('Please select a class')
+    return
+  }
   try {
-    await inviteStudent(inviteName.value)
+    await inviteStudent(inviteName.value, selectedClassId.value)
     ElMessage.success('Invitation sent')
   } catch {
     ElMessage.error('Invitation failed')
@@ -137,6 +158,22 @@ async function apply() {
     ElMessage.success('Application submitted')
   } catch {
     ElMessage.error('Application failed')
+  }
+}
+
+async function createNewClass() {
+  if (!newClassName.value.trim()) {
+    ElMessage.warning('Please enter class name')
+    return
+  }
+  try {
+    const r = await createClass(newClassName.value.trim())
+    teacherClasses.value.push({ id: r.class_id, name: r.class_name })
+    selectedClassId.value = r.class_id
+    newClassName.value = ''
+    ElMessage.success('Class created')
+  } catch {
+    ElMessage.error('Create failed')
   }
 }
 

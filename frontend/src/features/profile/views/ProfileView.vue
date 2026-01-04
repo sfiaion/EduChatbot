@@ -108,6 +108,7 @@ async function handleUpload(options: UploadRequestOptions) {
     })
     form.avatar = res.data.url
     ElMessage.success('头像上传成功')
+    await saveProfile()
   } catch (error) {
     ElMessage.error('上传失败')
   }
@@ -149,8 +150,8 @@ async function saveProfile() {
   try {
     await authStore.updateProfile({
         nickname: form.nickname,
-        phone: form.phone,
-        email: form.email,
+        phone: (form.phone && form.phone.trim()) ? form.phone.trim() : null,
+        email: (form.email && form.email.trim()) ? form.email.trim() : null,
         avatar: form.avatar
     })
     ElMessage.success('Profile updated')

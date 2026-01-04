@@ -54,10 +54,15 @@ def upload_assignment(
     current_user: User = Depends(get_current_active_teacher)
 ):
     teacher_id = current_user.teacher.id
+    clazz = db.query(Class).filter(Class.id == class_id, Class.teacher_id == teacher_id).first()
+    if not clazz:
+        raise HTTPException(status_code=403, detail="Class not found or not owned by current teacher")
     deadline_dt = None
     if deadline:
         try:
             deadline_dt = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+            if getattr(deadline_dt, "tzinfo", None) is not None:
+                deadline_dt = deadline_dt.astimezone().replace(tzinfo=None)
         except ValueError:
             pass # Or raise HTTP exception
     try:
@@ -81,6 +86,12 @@ def create_assignment_manual(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_teacher)
 ):
+    if assignment.class_id:
+        clazz = db.query(Class).filter(Class.id == assignment.class_id, Class.teacher_id == current_user.teacher.id).first()
+        if not clazz:
+            raise HTTPException(status_code=403, detail="Class not found or not owned by current teacher")
+    if assignment.deadline and getattr(assignment.deadline, "tzinfo", None) is not None:
+        assignment.deadline = assignment.deadline.astimezone().replace(tzinfo=None)
     a = create_assignment(db, assignment, current_user.teacher.id)
     try:
         create_notification(db, current_user.id, "已布置作业", f"作业「{a.title or a.id}」已创建", "assignment", a.id)

@@ -25,8 +25,8 @@ export async function applyJoin(className: string) {
   return api.post('/api/classes/join', null, { params: { class_name: className } })
 }
 
-export async function inviteStudent(username: string) {
-  return api.post('/api/classes/invite', null, { params: { student_username: username } })
+export async function inviteStudent(username: string, classId: number) {
+  return api.post('/api/classes/invite', null, { params: { student_username: username, class_id: classId } })
 }
 
 export async function listRequests() {
@@ -38,3 +38,12 @@ export async function handleRequest(id: number, action: 'accept' | 'reject') {
   return api.post(`/api/classes/requests/${id}/${action}`)
 }
 
+export async function createClass(name: string) {
+  const r = await api.post('/api/classes/create', null, { params: { class_name: name } })
+  return r.data as { class_id: number; class_name: string }
+}
+
+export async function listTeacherClasses() {
+  const r = await api.get('/api/classes/my')
+  return r.data as Array<{ id: number; name: string }>
+}

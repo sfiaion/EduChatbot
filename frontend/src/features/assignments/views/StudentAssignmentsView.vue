@@ -65,14 +65,36 @@ function goDetail(id: number) {
     router.push(`/paper/${id}`)
 }
 
+function parseLocalDate(dateStr: string) {
+    if (!dateStr) return null as Date | null
+    const hasTZ = /Z$|[+-]\d{2}:\d{2}$/.test(dateStr)
+    if (hasTZ) {
+        const d = new Date(dateStr)
+        return isNaN(d.getTime()) ? null : d
+    }
+    const s = dateStr.replace('T', ' ')
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$/)
+    if (!m) {
+        const d = new Date(dateStr)
+        return isNaN(d.getTime()) ? null : d
+    }
+    const [, y, mo, da, hh, mm, ss] = m
+    return new Date(Number(y), Number(mo) - 1, Number(da), Number(hh), Number(mm), ss ? Number(ss) : 0)
+}
+
 function formatDate(dateStr: string) {
     if (!dateStr) return 'N/A'
-    return dayjs(dateStr).format('YYYY-MM-DD HH:mm')
+    const d = parseLocalDate(dateStr)
+    if (!d) return dayjs(dateStr).format('YYYY-MM-DD HH:mm')
+    const pad = (n: number) => (n < 10 ? '0' + n : '' + n)
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function isOverdue(deadline: string) {
     if (!deadline) return false
-    return dayjs().isAfter(dayjs(deadline))
+    const d = parseLocalDate(deadline)
+    if (!d) return false
+    return Date.now() > d.getTime()
 }
 </script>
 

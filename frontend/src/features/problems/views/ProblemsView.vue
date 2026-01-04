@@ -24,7 +24,7 @@
            action="" 
            :http-request="customRequest" 
            :show-file-list="false" 
-           accept=".csv,.xlsx,.xls,.json">
+           accept=".docx,.pdf,.png,.jpg,.jpeg">
            <el-button class="ripple">Import Questions</el-button>
         </el-upload>
         <el-button class="btn-outline" @click="openAssignUpload">Upload Document to Create Assignment</el-button>
@@ -65,8 +65,10 @@
         <el-form-item label="Title">
           <el-input v-model="form.title" placeholder="e.g., Chapter 1 Homework" />
         </el-form-item>
-        <el-form-item label="Class ID">
-          <el-input-number v-model="form.class_id" :min="1" />
+        <el-form-item label="Class">
+          <el-select v-model="form.class_id" placeholder="请选择班级" style="width:100%">
+            <el-option v-for="c in myClasses" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="Deadline">
           <el-date-picker 
@@ -105,8 +107,10 @@
         <el-form-item label="Title">
           <el-input v-model="uploadForm.title" placeholder="e.g., Chapter 1 Homework" />
         </el-form-item>
-        <el-form-item label="Class ID">
-          <el-input-number v-model="uploadForm.class_id" :min="1" />
+        <el-form-item label="Class">
+          <el-select v-model="uploadForm.class_id" placeholder="请选择班级" style="width:100%">
+            <el-option v-for="c in myClasses" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="Deadline">
           <el-date-picker v-model="uploadForm.deadline" type="datetime" placeholder="Pick a time" />
@@ -132,12 +136,16 @@ import { uploadQuestions, type Question } from '../../../services/modules/proble
 import { ElMessage } from 'element-plus'
 import LatexText from '../../../components/LatexText.vue'
 import { api } from '../../../services/apiClient'
+import { listTeacherClasses } from '../../../services/modules/classes'
+import { useAuthStore } from '../../../stores/auth'
+import dayjs from 'dayjs'
 
 const store = useProblemsStore()
 const dialogVisible = ref(false)
 const uploadDialog = ref(false)
 const selectedFile = ref<File | null>(null)
 const router = useRouter()
+const auth = useAuthStore()
 
 const page = ref(1)
 const pageSize = ref(20)
@@ -156,13 +164,22 @@ const uploadForm = reactive({
   class_id: 1,
   deadline: ''
 })
+const myClasses = ref<Array<{id:number; name:string}>>([])
 const creating = ref(false)
 const progress = ref(0)
 const progressStatus = ref<'success'|'exception'|'active'>('active')
 const progressText = ref('准备上传...')
 
-onMounted(() => {
+onMounted(async () => {
   handleFilter()
+  try {
+    myClasses.value = await listTeacherClasses()
+    const first = myClasses.value.length ? myClasses.value[0] : undefined
+    if (first) {
+      form.class_id = first.id
+      uploadForm.class_id = first.id
+    } 
+  } catch {}
 })
 
 function handleFilter() {
@@ -199,7 +216,7 @@ async function submitAssignment() {
   }
   const success = await store.createAssignment({
     title: form.title,
-    teacher_id: 1, // Hardcoded for now
+    teacher_id: auth.user?.teacher_id || 0,
     class_id: form.class_id,
     deadline: form.deadline || undefined,
     assigned_question_ids: store.selectedQuestions.map(q => q.id)
@@ -217,11 +234,31 @@ async function submitAssignment() {
 
 async function customRequest(options: any) {
   try {
-    await uploadQuestions(options.file)
-    ElMessage.success('上传成功')
+    store.loading = true
+    const res = await uploadQuestions(options.file)
+    const data = res?.data || {}
+    if (data.status === 'success') {
+      const created = Number(data.created || 0)
+      const duplicates = Number(data.duplicates || 0)
+      const total = Number(data.total || created + duplicates)
+      ElMessage.success(`Import complete: ${created} new, ${duplicates} duplicates (total ${total}).`)
+    } else {
+      const msg = String(data.error || 'Import failed')
+      ElMessage.error(`Import failed: ${msg}`)
+    }
     handleFilter()
   } catch (e) {
-    ElMessage.error('上传失败')
+    try {
+      // Attempt to extract axios error shape
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err: any = e
+      const msg = (err?.response?.data?.error || err?.message) ? String(err?.response?.data?.error || err?.message) : 'Import failed'
+      ElMessage.error(msg)
+    } catch {
+      ElMessage.error('Import failed')
+    }
+  } finally {
+    store.loading = false
   }
 }
 
@@ -249,10 +286,9 @@ async function doCreateAssignment() {
 
     const formData = new FormData()
     formData.append('file', selectedFile.value)
-    formData.append('teacher_id', String(1))
     formData.append('class_id', String(uploadForm.class_id))
     if (uploadForm.title) formData.append('title', uploadForm.title)
-    if (uploadForm.deadline) formData.append('deadline', new Date(uploadForm.deadline).toISOString())
+    if (uploadForm.deadline) formData.append('deadline', dayjs(uploadForm.deadline).format('YYYY-MM-DDTHH:mm:ss'))
     progressText.value = '正在解析文档并查重...'
     const r = await api.post('/api/assignments/upload', formData, { timeout: 60000 })
     progress.value = 100

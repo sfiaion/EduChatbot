@@ -171,7 +171,7 @@ const splitMap = ref<Record<number, number>>({})
 const splitUploading = ref(false)
 const splitProgress = ref(0)
 const splitStatus = ref<'success'|'exception'|'active'>('active')
-const splitProgressText = ref('正在上传并切分...')
+const splitProgressText = ref('Uploading and splitting...')
 const splitPageCounter = ref(0)
 const batchInput = ref<HTMLInputElement | null>(null)
 const NUMBER_STYLE_CACHE_KEY = 'split_number_style_map'
@@ -354,7 +354,7 @@ async function submit() {
     ElMessage.success('Assignment submitted, grading in progress...')
     submitProgressText.value = 'Grading...'
 
-    // 现实友好：轮询结果到达后再跳转（最多等待 10 秒）
+    // User-friendly: poll results then redirect (max 10s)
     const start = Date.now()
     const poll = async () => {
       try {
@@ -371,7 +371,7 @@ async function submit() {
       if (Date.now() - start < 10000) {
         setTimeout(poll, 800)
       } else {
-        // 超时仍然跳转，页面会自己请求并显示加载失败提示
+        // Timeout: still redirect; results page will fetch and show status
         clearInterval(timer)
         submitProgress.value = 95
         submitStatus.value = 'active'

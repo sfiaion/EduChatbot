@@ -47,15 +47,6 @@ router.beforeEach((to, _from, next) => {
     } catch { return null; }
   }
   const role = getRole();
-  const teacherBlocked = ['/chat', '/notifications', '/knowledge'];
-  const studentBlocked = ['/chat', '/notifications'];
-
-  if (role === 'teacher' && teacherBlocked.includes(to.path)) {
-    return next('/problems');
-  }
-  if (role === 'student' && studentBlocked.includes(to.path)) {
-    return next('/student-assignments');
-  }
   if (to.path === '/') {
     if (role === 'teacher' || role === 'admin') return next('/problems');
     if (role === 'student') return next('/student-assignments');

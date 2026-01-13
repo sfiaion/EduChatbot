@@ -49,6 +49,7 @@ class StudentSubmission(Base):
     student_answer = Column(String, nullable=False)
     image_path = Column(String, nullable=True)
     is_correct = Column(Boolean, nullable=True, default=None)
+    attempt_count = Column(Integer, default=0, nullable=False)
     created_at = Column(TIMESTAMP, default=datetime.now, nullable=False)
 
     # Relationships
@@ -77,6 +78,8 @@ class ErrorAnalysis(Base):
     submission_id = Column(Integer, ForeignKey("student_submissions.id"), nullable=False, unique=True)
     error_type = Column(String, nullable=False)  # knowledge/calculation/misreading/logic/method
     analysis = Column(String, nullable=False)
+    hint = Column(String, nullable=True)
+    correction = Column(String, nullable=True)
     knowledge_node_id = Column(Integer, ForeignKey("knowledge_nodes.id"), nullable=True)
     created_at = Column(TIMESTAMP, default=datetime.now, nullable=False)
 

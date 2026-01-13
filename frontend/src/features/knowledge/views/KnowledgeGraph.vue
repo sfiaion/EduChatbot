@@ -193,7 +193,7 @@ async function refreshBreakpoints() {
   try {
     breakpoints.value = await getBreakpoints(classId.value, dateRange.value[0], dateRange.value[1], 5)
   } catch {
-    ElMessage.error('加载断点失败')
+    ElMessage.error('Failed to load breakpoint')
   } finally {
     loadingBreakpoints.value = false
   }

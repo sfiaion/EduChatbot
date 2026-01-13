@@ -4,8 +4,83 @@ from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from app.schemas.correction import CorrectionRequest, CorrectionResponse, ErrorType
 import os
+import json
 from typing import List, Optional, Tuple
 from app.models.question import Question, KnowledgeNode
+
+def _extract_first_json_object(text: str) -> str | None:
+    if not text:
+        return None
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_str = False
+    escape = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        else:
+            if ch == '"':
+                in_str = True
+                continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+    return None
+
+def _escape_newlines_inside_json_strings(s: str) -> str:
+    if not s:
+        return s
+    out: list[str] = []
+    in_str = False
+    escape = False
+    for ch in s:
+        if in_str:
+            if escape:
+                out.append(ch)
+                escape = False
+                continue
+            if ch == "\\":
+                out.append(ch)
+                escape = True
+                continue
+            if ch == '"':
+                out.append(ch)
+                in_str = False
+                continue
+            if ch == "\n":
+                out.append("\\n")
+                continue
+            if ch == "\r":
+                continue
+            out.append(ch)
+            continue
+        else:
+            if ch == '"':
+                out.append(ch)
+                in_str = True
+                continue
+            out.append(ch)
+    return "".join(out)
+
+def _parse_correction_response(raw: str) -> CorrectionResponse:
+    json_blob = _extract_first_json_object(raw) or raw
+    json_blob = _escape_newlines_inside_json_strings(json_blob)
+    data = json.loads(json_blob)
+    if isinstance(data, dict):
+        return CorrectionResponse(**data)
+    raise ValueError("Invalid correction response type")
 
 def grading_logic(
     question: str,
@@ -21,48 +96,42 @@ def grading_logic(
     )
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """你是一位高中数学老师，请严格按以下规则批改学生答案：
-    1. 判断逻辑：
-        如果学生答案与标准答案在数学上等价（允许不同表达形式），视为正确。
-        否则视为错误。
-    2. 输出格式（必须严格遵守，只输出 JSON，不要任何其他文字）：
-        若正确，输出：{{"is_correct": true, "message": "答案正确"}}
-        若错误，输出：{{"is_correct": false, "error_type": "...", "analysis": "..."}}
-    3. 错误类型（error_type）必须从以下5个值中选择其一：
-        "knowledge"（知识点错误）
-        "calculation"（计算错误）
-        "misreading"（审题错误）
-        "logic"（逻辑错误）
-        "method"（方法错误）
-    4. analysis 要求：
-        用中文书写；
-        具体指出错误出现在哪一步或哪个概念；
-        语气友善，具有教学指导意义。
-    请只输出一个 JSON 对象，不要 Markdown、不要解释、不要额外字段。请确保输出是合法 JSON，如果使用反斜杠，请正确转义。"""),
-        ("human", "题目：{question}\n\n标准答案：{correct_answer}\n\n学生答案：{student_answer}")
+        ("system", """You are a high school math teacher. Grade the student's answer strictly as follows:
+    1. Decision rule:
+        If the student's answer is mathematically equivalent to the correct answer (even if expressed differently), it is correct.
+        Otherwise, it is incorrect.
+    2. Output format (STRICT: output ONLY a single JSON object, no extra text):
+        If correct: {{"is_correct": true, "message": "Correct"}}
+        If incorrect: {{"is_correct": false, "error_type": "...", "analysis": "..."}}
+    3. error_type MUST be one of:
+        "knowledge", "calculation", "misreading", "logic", "method"
+    4. analysis requirements:
+        Write in English;
+        Point out exactly which step or concept is wrong;
+        Be friendly and instructional.
+    Output ONLY a valid JSON object. No Markdown, no explanation outside JSON. Ensure proper escaping if backslashes are used."""),
+        ("human", "Question: {question}\n\nCorrect Answer: {correct_answer}\n\nStudent Answer: {student_answer}")
     ])
-    parser = JsonOutputParser(pydantic_object=CorrectionResponse)
-    chain = prompt | llm | parser
+    chain = prompt | llm | StrOutputParser()
     try:
-        result = chain.invoke({
+        raw = chain.invoke({
             "question": question,
             "student_answer": student_answer,
             "correct_answer": correct_answer
         })
-        # Ensure we return a Pydantic model, as JsonOutputParser might return a dict
-        if isinstance(result, dict):
-            return CorrectionResponse(**result)
-        return result
+        return _parse_correction_response(raw)
     except Exception as e:
-        print(f"解析失败: {e}")
+        print(f"Parse failed: {e}")
         return CorrectionResponse(
             is_correct=False,
             error_type=ErrorType.KNOWLEDGE,
-            analysis="批改结果解析失败，请重试。"
+            analysis="Failed to parse grading result. Please retry."
         )
 
 def _escape_curly_braces(text: str) -> str:
     return text.replace("{", "{{").replace("}", "}}")
+
+import re
 
 def identify_knowledge_from_candidates(
     question: str,
@@ -71,11 +140,14 @@ def identify_knowledge_from_candidates(
     candidates: List[KnowledgeNode]
 ) -> int:
     if not candidates:
-        print("无候选知识点")
         return -1
+    
+    # Limit candidates to prevent token overflow
+    candidates_subset = candidates[:20]
+    
     candidate_text = "\n".join([
         f"{i}. {_escape_curly_braces(node.name)} : {_escape_curly_braces(node.content)}"
-        for i, node in enumerate(candidates, 1)
+        for i, node in enumerate(candidates_subset, 1)
     ])
 
     llm = ChatOpenAI(
@@ -86,25 +158,120 @@ def identify_knowledge_from_candidates(
         max_tokens=100
     )
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """你是一位资深高中数学教师。学生在解答一道数学题时出现了知识点性错误。
-        请根据题目、标准答案和学生答案，从以下候选知识点中选择**最可能未掌握**的一项。
-        只输出序号（如 "3"），不要任何解释、标点或额外文字。"""),
-        ("human", f"""题目：{question}
-        标准答案：{correct_answer}
-        学生答案：{student_answer}
-        候选知识点：
+        ("system", """You are a senior high school math teacher.
+        Identify the single most likely missing knowledge point based on the student's error.
+        
+        CRITICAL INSTRUCTION:
+        Output ONLY a JSON object with a single key "index".
+        Example: {{"index": 3}}
+        Do NOT output any text, explanation, or reasoning.
+        """),
+        ("human", """Question: {question}
+        Correct Answer: {correct_answer}
+        Student Answer: {student_answer}
+        Candidate Knowledge Points:
         {candidate_text}""")
+    ])
+    chain = prompt | llm | JsonOutputParser()
+    try:
+        output = chain.invoke({
+            "question": question,
+            "correct_answer": correct_answer,
+            "student_answer": student_answer,
+            "candidate_text": candidate_text
+        })
+        
+        # Output should be a dict like {"index": 3}
+        if isinstance(output, dict) and "index" in output:
+            idx = int(output["index"]) - 1
+            if 0 <= idx < len(candidates_subset):
+                print(f"Secondary Check -> ID: {candidates_subset[idx].id} | {candidates_subset[idx].name}")
+                return candidates_subset[idx].id
+        
+        print(f"Secondary Check Failed: Invalid output format {output}")
+        return candidates_subset[0].id # Fallback
+    except Exception as e:
+        print(f"Secondary Check Error: {e}")
+        return candidates_subset[0].id if candidates_subset else -1
+
+def generate_hint(
+    question: str,
+    student_answer: str,
+    correct_answer: str,
+    attempt_count: int = 1
+) -> str:
+    def _truncate_words(s: str, limit: int = 80) -> str:
+        try:
+            words = s.strip().split()
+            if len(words) <= limit:
+                return s.strip()
+            return " ".join(words[:limit]).strip()
+        except Exception:
+            return s
+
+    llm = ChatOpenAI(
+        model="qwen3-max",
+        api_key=os.getenv("DASHSCOPE_API_KEY"),
+        base_url=os.getenv("DASHSCOPE_BASE_URL"),
+        temperature=0.7,
+        max_tokens=500
+    )
+
+    hint_strategy = ""
+    if attempt_count == 1:
+        hint_strategy = """
+        - Level 1 Hint: Focus on the INITIAL STEP or CONCEPT.
+        - Identify the specific discrepancy between the student's starting point and the correct approach.
+        - Be encouraging but point them in the right direction.
+        - Example: "You're close, but check how you handled the logarithm coefficient."
+        """
+    elif attempt_count == 2:
+        hint_strategy = """
+        - Level 2 Hint: Focus on the CALCULATION or LOGICAL GAP.
+        - Point out exactly where the error likely occurred (without giving the answer).
+        - Example: "Remember that 2lg2 becomes lg(2^2). Did you subtract correctly?"
+        """
+    else:
+        hint_strategy = """
+        - Level 3 Hint (Final Attempt): Explain the FULL STRATEGY.
+        - Outline the steps: Step 1 -> Step 2 -> Step 3.
+        - This is the "Giveaway" strategy but still requires them to do the final math.
+        """
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are a helpful and Socratic teacher.
+        The student has answered incorrectly. Current Attempt: {attempt_count}/3.
+        
+        Your Goal: Provide a specific, targeted hint in English based on the Student's actual error, in <= 80 words.
+        
+        Strategy for this attempt:
+        {hint_strategy}
+        
+        Instructions:
+        1. Compare the Student Answer "{student_answer}" with the Correct Answer "{correct_answer}".
+        2. Identify the specific mistake (e.g., wrong formula, arithmetic error, conceptual misunderstanding).
+        3. Write a hint that addresses THIS specific mistake.
+        4. Keep it concise (no more than 80 words).
+        5. Avoid headings, lists, code blocks, or markdown formatting.
+        6. If math is necessary, include at most ONE short LaTeX expression (like \\log_2 9), otherwise use plain text.
+        7. Do NOT reveal the final answer directly.
+        8. Output MUST be in English.
+        """),
+        ("human", """Question: {question}
+        Correct Answer: {correct_answer}
+        Student Answer: {student_answer}
+        """)
     ])
     chain = prompt | llm | StrOutputParser()
     try:
-        output = chain.invoke({})
-        idx = int(output.strip()) - 1  # 转为 0-based 索引
-        if 0 <= idx < len(candidates):
-            print(f"二次判断 → 知识点 ID: {candidates[idx].id} | {candidates[idx].name}")
-            return candidates[idx].id
-        else:
-            print("二次判断：序号超出范围")
-            return -1
+        text = chain.invoke({
+            "question": question, 
+            "correct_answer": correct_answer, 
+            "student_answer": student_answer,
+            "attempt_count": attempt_count,
+            "hint_strategy": hint_strategy
+        })
+        return _truncate_words(text, 80)
     except Exception as e:
-        print(f"二次判断失败: {e}")
-        return -1
+        print(f"Hint generation error: {e}")
+        return "It looks like a small issue. Check the question and your calculation again!"

@@ -68,10 +68,10 @@ def upload_assignment(
     try:
         a = process_assignment_upload(file, db, teacher_id, class_id, deadline_dt, title)
         try:
-            create_notification(db, current_user.id, "已布置作业", f"作业「{a.title or a.id}」已创建", "assignment", a.id)
+            create_notification(db, current_user.id, "Assignment Created", f"Assignment \"{a.title or a.id}\" created", "assignment", a.id)
             students = db.query(Student).filter(Student.class_id == class_id).all()
             for s in students:
-                create_notification(db, s.user_id, "新的作业", f"收到老师布置的作业「{a.title or a.id}」", "assignment", a.id)
+                create_notification(db, s.user_id, "New Assignment", f"You received a new assignment \"{a.title or a.id}\"", "assignment", a.id)
         except Exception:
             pass
         return a
@@ -94,11 +94,11 @@ def create_assignment_manual(
         assignment.deadline = assignment.deadline.astimezone().replace(tzinfo=None)
     a = create_assignment(db, assignment, current_user.teacher.id)
     try:
-        create_notification(db, current_user.id, "已布置作业", f"作业「{a.title or a.id}」已创建", "assignment", a.id)
+        create_notification(db, current_user.id, "Assignment Created", f"Assignment \"{a.title or a.id}\" created", "assignment", a.id)
         if a.class_id:
             students = db.query(Student).filter(Student.class_id == a.class_id).all()
             for s in students:
-                create_notification(db, s.user_id, "新的作业", f"收到老师布置的作业「{a.title or a.id}」", "assignment", a.id)
+                create_notification(db, s.user_id, "New Assignment", f"You received a new assignment \"{a.title or a.id}\"", "assignment", a.id)
     except Exception:
         pass
     return a

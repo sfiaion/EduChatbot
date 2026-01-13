@@ -2,38 +2,38 @@
   <div class="page-wrap">
     <div class="toolbar card-soft" style="margin-bottom:12px;">
       <div class="toolbar-left">
-        <h2 class="title-gradient-blue" style="margin:0;">练习</h2>
+        <h2 class="title-gradient-blue" style="margin:0;">Practice</h2>
         <span style="margin-left:8px; color:#606266;">{{ index+1 }} / {{ questions.length }}</span>
       </div>
       <div class="toolbar-right">
-        <el-button size="small" class="btn-outline" @click="prev" :disabled="index===0">上一题</el-button>
-        <el-button size="small" class="btn-ghost" @click="next" :disabled="index>=questions.length-1">下一题</el-button>
+        <el-button size="small" class="btn-outline" @click="prev" :disabled="index===0">Previous</el-button>
+        <el-button size="small" class="btn-ghost" @click="next" :disabled="index>=questions.length-1">Next</el-button>
       </div>
     </div>
-    <div v-if="questions.length===0" style="color:#909399;">练习清单为空</div>
+    <div v-if="questions.length===0" style="color:#909399;">Practice list is empty</div>
     <div v-else class="page-grid">
       <div class="mac-card soft-hover" style="padding:16px;">
         <LatexText :content="current.question" />
         <div class="divider-soft"></div>
-        <el-input v-model="answer" type="textarea" :rows="4" placeholder="输入答案" />
+        <el-input v-model="answer" type="textarea" :rows="4" placeholder="Type your answer" />
         <div style="margin-top:12px; display:flex; gap:8px;">
-          <el-button type="primary" @click="save">暂存进度</el-button>
-          <el-button type="success" @click="submit" :disabled="isSubmitted">提交答案</el-button>
+          <el-button type="primary" @click="save">Save Progress</el-button>
+          <el-button type="success" @click="submit" :disabled="isSubmitted">Submit Answer</el-button>
         </div>
         
         <div v-if="isSubmitted" style="margin-top:16px; padding:12px; border-radius:8px;" :style="{ background: isCorrect ? '#f0f9eb' : '#fef0f0', color: isCorrect ? '#67c23a' : '#f56c6c' }">
             <div style="font-weight:bold; font-size:16px; margin-bottom:8px;">
-                {{ isCorrect ? '回答正确！' : '回答错误' }}
+                {{ isCorrect ? 'Correct!' : 'Incorrect' }}
             </div>
             <div v-if="!isCorrect">
-                <strong>标准答案：</strong>
+                <strong>Reference Answer:</strong>
                 <LatexText :content="correctAnswer" />
             </div>
         </div>
       </div>
       <div class="aside-sticky">
         <div class="panel">
-          <div class="panel-title">练习清单</div>
+          <div class="panel-title">Practice List</div>
           <el-scrollbar height="420px">
             <div class="panel-list">
               <div
@@ -45,7 +45,7 @@
               >
                 <span>#{{ q.id }}</span>
                 <el-tag size="small" :type="store.progress[q.id] ? 'success' : 'info'">
-                  {{ store.progress[q.id] ? '已作答' : '未作答' }}
+                  {{ store.progress[q.id] ? 'Answered' : 'Not Answered' }}
                 </el-tag>
               </div>
             </div>
@@ -101,11 +101,11 @@ function loadProgress() {
 }
 function prev() { if (index.value>0) { index.value--; loadProgress() } }
 function next() { if (index.value<questions.value.length-1) { index.value++; loadProgress() } }
-async function save() { const cur = current.value; await store.saveProgress(cur.id, answer.value); ElMessage.success('已保存') }
+async function save() { const cur = current.value; await store.saveProgress(cur.id, answer.value); ElMessage.success('Saved') }
 
 async function submit() {
   if (!answer.value.trim()) {
-      ElMessage.warning('请输入答案')
+      ElMessage.warning('Please enter an answer')
       return
   }
   const cur = current.value
@@ -117,7 +117,7 @@ async function submit() {
       // Auto save progress
       await store.saveProgress(cur.id, answer.value)
   } catch (e) {
-      ElMessage.error('提交失败')
+      ElMessage.error('Submission failed')
   }
 }
 
@@ -134,11 +134,11 @@ onBeforeRouteLeave((to, from, next) => {
   void to; void from;
   if (answer.value && !isSubmitted.value) {
      ElMessageBox.confirm(
-       '当前题目未提交，是否保存进度？',
-       '提示',
+       'Current question not submitted. Save progress?',
+       'Notice',
        { 
-         confirmButtonText: '保存', 
-         cancelButtonText: '不保存', 
+         confirmButtonText: 'Save', 
+         cancelButtonText: 'Don\'t Save',
          type: 'warning',
          distinguishCancelAndClose: true
        }

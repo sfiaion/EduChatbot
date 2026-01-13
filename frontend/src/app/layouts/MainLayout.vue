@@ -16,14 +16,14 @@
       </div>
       <el-menu :collapse="collapsed" :default-active="active" router class="side-nav">
         <!-- Common -->
-        <el-menu-item v-if="authStore.role === 'admin'" index="/chat"><el-icon><ChatLineRound /></el-icon><span>Assistant</span></el-menu-item>
-        <el-menu-item v-if="authStore.role === 'admin'" index="/notifications"><el-icon><Bell /></el-icon><span>Notifications</span></el-menu-item>
+        <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'student' || authStore.role === 'admin'" index="/chat"><el-icon><ChatLineRound /></el-icon><span>Assistant</span></el-menu-item>
+        <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'student' || authStore.role === 'admin'" index="/notifications"><el-icon><Bell /></el-icon><span>Notifications</span></el-menu-item>
         <el-menu-item index="/classes"><el-icon><User /></el-icon><span>Class Management</span></el-menu-item>
         
         <!-- Teacher / Admin -->
         <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'admin'" index="/problems"><el-icon><Document /></el-icon><span>Problem Bank</span></el-menu-item>
         <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'admin' || authStore.role === 'student'" index="/results"><el-icon><DataAnalysis /></el-icon><span>Grading Results</span></el-menu-item>
-        <el-menu-item v-if="authStore.role === 'admin'" index="/knowledge"><el-icon><DataAnalysis /></el-icon><span>Analytics</span></el-menu-item>
+        <el-menu-item v-if="authStore.role === 'teacher' || authStore.role === 'admin'" index="/knowledge"><el-icon><DataAnalysis /></el-icon><span>Analytics</span></el-menu-item>
 
         <!-- Student / Admin -->
         <el-menu-item v-if="authStore.role === 'student' || authStore.role === 'admin'" index="/student-assignments"><el-icon><Edit /></el-icon><span>Student Assignments</span></el-menu-item>

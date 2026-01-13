@@ -66,7 +66,7 @@
           <el-input v-model="form.title" placeholder="e.g., Chapter 1 Homework" />
         </el-form-item>
         <el-form-item label="Class">
-          <el-select v-model="form.class_id" placeholder="请选择班级" style="width:100%">
+          <el-select v-model="form.class_id" placeholder="Select Class" style="width:100%">
             <el-option v-for="c in myClasses" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
@@ -108,7 +108,7 @@
           <el-input v-model="uploadForm.title" placeholder="e.g., Chapter 1 Homework" />
         </el-form-item>
         <el-form-item label="Class">
-          <el-select v-model="uploadForm.class_id" placeholder="请选择班级" style="width:100%">
+          <el-select v-model="uploadForm.class_id" placeholder="Select Class" style="width:100%">
             <el-option v-for="c in myClasses" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
@@ -168,7 +168,7 @@ const myClasses = ref<Array<{id:number; name:string}>>([])
 const creating = ref(false)
 const progress = ref(0)
 const progressStatus = ref<'success'|'exception'|'active'>('active')
-const progressText = ref('准备上传...')
+const progressText = ref('Preparing upload...')
 
 onMounted(async () => {
   handleFilter()
@@ -211,7 +211,7 @@ function openAssignUpload() {
 
 async function submitAssignment() {
   if (!form.title) {
-    ElMessage.warning('请输入标题')
+    ElMessage.warning('Please enter a title')
     return
   }
   const success = await store.createAssignment({
@@ -223,12 +223,12 @@ async function submitAssignment() {
   })
   
   if (success) {
-    ElMessage.success('作业布置成功')
+    ElMessage.success('Assignment created successfully')
     dialogVisible.value = false
     form.title = ''
     store.selectedQuestions = [] // Clear selection? Table selection clearing might need ref
   } else {
-    ElMessage.error('作业布置失败')
+    ElMessage.error('Failed to create assignment')
   }
 }
 
@@ -268,18 +268,18 @@ function handleUploadFileChange(file: any) {
 }
 async function doCreateAssignment() {
   if (!selectedFile.value) {
-    ElMessage.warning('请先选择文件')
+    ElMessage.warning('Please select a file first')
     return
   }
   try {
     creating.value = true
     progress.value = 5
     progressStatus.value = 'active'
-    progressText.value = '正在上传文件...'
+    progressText.value = 'Uploading file...'
     const timer = setInterval(() => {
-      // 模拟阶段进度：最多到 90%，等待服务端完成
+      // Simulate staged progress: up to 90%, wait for server
       if (progress.value < 90) {
-        // 前半段快一些，后半段慢一些
+        // Faster early, slower later
         progress.value += progress.value < 50 ? 5 : 2
       }
     }, 400)
@@ -289,23 +289,23 @@ async function doCreateAssignment() {
     formData.append('class_id', String(uploadForm.class_id))
     if (uploadForm.title) formData.append('title', uploadForm.title)
     if (uploadForm.deadline) formData.append('deadline', dayjs(uploadForm.deadline).format('YYYY-MM-DDTHH:mm:ss'))
-    progressText.value = '正在解析文档并查重...'
+    progressText.value = 'Parsing document and checking duplicates...'
     const r = await api.post('/api/assignments/upload', formData, { timeout: 60000 })
     progress.value = 100
     progressStatus.value = 'success'
-    progressText.value = '创建成功'
-    ElMessage.success(`作业创建成功，ID：${r.data.id}`)
+    progressText.value = 'Created'
+    ElMessage.success(`Assignment created, ID: ${r.data.id}`)
     uploadDialog.value = false
     selectedFile.value = null
     clearInterval(timer)
     creating.value = false
-    // 跳转到学生作业页面以便查看题目
+    // Redirect to student assignments page
     if (r?.data?.id) {
       router.push(`/paper/${r.data.id}`)
     }
   } catch (e: any) {
     console.error(e)
-    const msg = (e?.response?.data?.detail) ? String(e.response.data.detail) : '创建作业失败'
+    const msg = (e?.response?.data?.detail) ? String(e.response.data.detail) : 'Failed to create assignment'
     progressStatus.value = 'exception'
     progressText.value = msg
     ElMessage.error(msg)

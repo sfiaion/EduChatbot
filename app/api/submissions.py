@@ -30,6 +30,10 @@ class SubmissionResultResponse(BaseModel):
     is_correct: bool
     error_type: str = None
     analysis: str = None
+    hint: str = None
+    status: str = "success"
+    attempt_count: int = 0
+    remaining_attempts: int = 0
 
 @router.get("/stats/{assignment_id}")
 def get_assignment_stats(
@@ -191,11 +195,27 @@ def get_submission_results(
             question_id=sub.question_id,
             student_answer=sub.student_answer,
             image_path=sub.image_path,
-            is_correct=sub.is_correct if sub.is_correct is not None else False
+            is_correct=sub.is_correct if sub.is_correct is not None else False,
+            attempt_count=sub.attempt_count or 0
         )
-        if sub.is_correct is False and sub.error_analysis:
-            res.error_type = sub.error_analysis.error_type
-            res.analysis = sub.error_analysis.analysis
+        
+        if sub.is_correct:
+            res.status = "success"
+        else:
+            # If not correct, check attempts
+            attempts = sub.attempt_count or 0
+            if attempts < 3:
+                res.status = "retry"
+                res.remaining_attempts = 3 - attempts
+                # hint may be None in early attempts before analysis saved
+                if sub.error_analysis:
+                    res.hint = sub.error_analysis.hint
+            else:
+                res.status = "failed"
+                if sub.error_analysis:
+                    res.error_type = sub.error_analysis.error_type
+                    res.analysis = sub.error_analysis.analysis
+                    
         results.append(res)
     return results
 
@@ -212,7 +232,7 @@ def submit_assignment(
     count = create_submissions(db, sub)
     results = process_submission(sub, db)
     try:
-        create_notification(db, current_user.id, "作业已提交", f"已提交作业 {sub.assignment_id}", "submission", sub.assignment_id)
+        create_notification(db, current_user.id, "Assignment Submitted", f"Submitted assignment {sub.assignment_id}", "submission", sub.assignment_id)
     except Exception:
         pass
     return {"status": "ok", "submitted_count": count, "results": results}

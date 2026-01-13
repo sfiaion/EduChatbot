@@ -107,10 +107,10 @@ async function handleUpload(options: UploadRequestOptions) {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     form.avatar = res.data.url
-    ElMessage.success('头像上传成功')
+    ElMessage.success('Avatar uploaded successfully')
     await saveProfile()
   } catch (error) {
-    ElMessage.error('上传失败')
+    ElMessage.error('Upload failed')
   }
 }
 

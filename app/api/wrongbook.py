@@ -28,10 +28,11 @@ def list_wrongbook(
                 "question_id": sub.question_id,
                 "question": q.question,
                 "student_answer": sub.student_answer,
-                "error_count": 1,
+                "error_count": sub.attempt_count, # Use actual attempt count
                 "last_error_time": str(sub.created_at)
             }
         else:
-            item["error_count"] += 1
+            # Should not happen with upsert, but just in case
+            item["error_count"] += sub.attempt_count
             item["last_error_time"] = str(max(item["last_error_time"], str(sub.created_at)))
     return list(agg.values())

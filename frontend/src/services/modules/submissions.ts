@@ -1,7 +1,8 @@
 import { api } from '../apiClient'
 
 export async function submitAssignment(payload: { assignment_id: number; student_id: number; answers: {question_id: number, student_answer: string}[] }) {
-  return api.post('/api/submissions/', payload)
+  const r = await api.post('/api/submissions/', payload)
+  return r.data as { status: string; submitted_count: number; results: SubmissionResult[] }
 }
 
 export async function uploadSubmissionImage(file: File) {
@@ -18,6 +19,10 @@ export interface SubmissionResult {
   is_correct: boolean
   error_type?: string
   analysis?: string
+  status?: 'success' | 'retry' | 'failed'
+  hint?: string
+  attempt_count?: number
+  remaining_attempts?: number
 }
 
 export async function getSubmissionResults(assignmentId: number, studentId: number) {

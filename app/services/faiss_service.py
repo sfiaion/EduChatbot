@@ -1,4 +1,4 @@
-# app/services/faiss.py
+# app/services/faiss_service.py
 import pickle
 import os
 import pathlib
@@ -6,23 +6,26 @@ import faiss
 import numpy as np
 
 class FaissService:
-    def __init__(self, dim):
+    def __init__(self, dim, index_name="faiss"):
         self.dim = dim
-        app_root = pathlib.Path(__file__).resolve().parent.parent
-        env_dir = os.environ.get("EDUCHATBOT_FAISS_DIR")
-        if env_dir:
-            data_dir = pathlib.Path(env_dir)
-        else:
-            data_dir = pathlib.Path.home() / ".educhatbot"
+        self.index_name = index_name
+
+        # 沿用您原始代码中被验证过的、最可靠的存储路径方案
+        # 所有索引都将存放在 C:\Users\<YourUsername>\.educhatbot 文件夹下
+        data_dir = pathlib.Path.home() / ".educhatbot"
         data_dir.mkdir(parents=True, exist_ok=True)
-        self.index_path = str(data_dir / "faiss.index")
-        self.vectors_path = str(data_dir / "id2vector.pkl")
+
+        # 根据 index_name 构建不同的文件名
+        self.index_path = str(data_dir / f"{index_name}.index")
+        self.vectors_path = str(data_dir / f"{index_name}_id2vector.pkl")
+
+        print(f"[FaissService] Index path set to: {self.index_path}")
+
         if os.path.exists(self.index_path):
-            # print("加载已有 FAISS index")
             self.index = faiss.read_index(self.index_path)
         else:
-            # print("创建新 FAISS index")
             self.index = faiss.IndexIDMap(faiss.IndexFlatIP(dim))
+
         if os.path.exists(self.vectors_path):
             with open(self.vectors_path, "rb") as f:
                 self.id2vector = pickle.load(f)
@@ -52,17 +55,13 @@ class FaissService:
         return ids[0], scores[0]
 
     def save(self):
-        # 保存索引
         faiss.write_index(self.index, self.index_path)
-        # 保存 id -> vector 映射
         with open(self.vectors_path, "wb") as f:
             pickle.dump(self.id2vector, f)
 
-    # faiss_service.delete_id(question_id) 删除指定题目
     def delete_id(self, id):
         if id in self.id2vector:
             del self.id2vector[id]
-        # 重建索引
         self.index = faiss.IndexIDMap(faiss.IndexFlatIP(self.dim))
         ids = np.array([int(k) for k in self.id2vector.keys()], dtype=np.int64)
         vectors = np.array(list(self.id2vector.values()), dtype=np.float32)

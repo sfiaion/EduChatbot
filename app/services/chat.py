@@ -5,7 +5,16 @@ from fastapi import HTTPException
 from dashscope import Generation
 from ..crud.chat_session import get_session_history, update_session_history
 from sqlalchemy.orm import Session
+from .rag_service import RagService
+from dotenv import load_dotenv
+import pathlib
 
+# 加载环境变量
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+load_dotenv(dotenv_path=PROJECT_ROOT / ".env", encoding='utf-8')
+
+# 初始化 RAG 服务
+rag_service = RagService()
 
 def get_api_key():
     key = os.getenv("DASHSCOPE_API_KEY")
@@ -38,25 +47,52 @@ def normalize_markdown_latex(text: str) -> str:
         return text
 
 async def stream_chat(messages: list):
-    """Stream DashScope qwen3-max"""
+    """Stream DashScope qwen3-max with RAG enhancement"""
     api_key = get_api_key()
 
+    # 1. RAG 增强：获取最后一个用户消息并检索教材内容
+    last_user_msg = ""
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            last_user_msg = msg.get("content", "")
+            break
+    
+    context = ""
+    if last_user_msg:
+        try:
+            passages = rag_service.search_passages(last_user_msg, k=2)
+            context = rag_service.format_context(passages)
+        except Exception as e:
+            print(f"RAG Retrieval failed: {e}")
+
+    # 2. 构建 System Prompt
+    system_content = (
+        "You are a Learning Assistant. Only handle study-related questions. "
+        "Politely refuse unrelated topics. "
+        "\nOutput in English with Markdown; use LaTeX for math."
+        "\nDelimiters: inline $...$ or \\(...\\), block \\[...\\]; if using $$, keep the expression within a single paragraph."
+        "\nFormatting: for multi-line math, use \\begin{aligned} ... \\end{aligned}."
+        "\nFunctions and symbols: write \\sin\\alpha, \\cos\\beta, \\tan\\theta, \\ln x, \\log_a M, \\frac{a}{b}."
+        "\nVectors: write \\vec{v}, magnitude |\\vec{v}|."
+        "\nStructure the answer with clear steps, key formulas, and conclusions."
+    )
+
+    if context:
+        system_content += (
+            "\n\nBelow is relevant authoritative textbook content for your reference. "
+            "Please prioritize using this content to ensure your answer is accurate, "
+            "aligned with the curriculum, and provides evidence from the textbook:\n"
+            f"{context}"
+        )
+
+    guard = {
+        "role": "system",
+        "content": system_content
+    }
+    
+    final_messages = [guard] + messages
+    
     try:
-        guard = {
-            "role": "system",
-            "content": (
-                "You are a Learning Assistant. Only handle study-related questions (subject knowledge, problem solving, solution steps, study methods, exam strategies, homework help, knowledge graph explanations, etc.). "
-                "Politely refuse unrelated topics with: \"I focus on study-related questions. Please keep the conversation on learning topics.\" "
-                "\nOutput in English with Markdown; use LaTeX for math."
-                "\nDelimiters: inline $...$ or \\(...\\), block \\[...\\]; if using $$, keep the expression within a single paragraph (no standalone $$ lines)."
-                "\nFormatting: for multi-line math, use \\begin{aligned} ... \\end{aligned}, lines separated by \\\\ and aligned with &."
-                "\nFunctions and symbols: write \\sin\\alpha, \\cos\\beta, \\tan\\theta, \\ln x, \\log_a M, \\frac{a}{b}."
-                "\nVectors: write \\vec{v}, magnitude |\\vec{v}|."
-                "\nDo not output single backslash line breaks; do not separate function names from variables (avoid \"\\sin alpha\")."
-                "\nStructure the answer with clear steps, key formulas, and conclusions."
-            )
-        }
-        final_messages = [guard] + messages
         responses = Generation.call(
             api_key=api_key,
             model="qwen3-max",

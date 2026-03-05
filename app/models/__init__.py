@@ -11,3 +11,4 @@ from .question import *
 from .chat_sessions import *
 from .clazz import *
 from .notification import *
+from .rag import *
